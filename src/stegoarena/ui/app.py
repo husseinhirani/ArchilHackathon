@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..store import LocalStore
+from .highlights import attempt_meta, compute_highlights
 
 STATIC = Path(__file__).resolve().parent / "static"
 
@@ -23,16 +24,32 @@ def create_app(cfg) -> FastAPI:
     def index():
         return (STATIC / "index.html").read_text()
 
+    @app.get("/guide", response_class=HTMLResponse)
+    def guide():
+        return (STATIC / "guide.html").read_text()
+
     @app.get("/api/overview")
     def overview():
         rounds = store.read_json("rounds/index.json", {"rounds": []})["rounds"]
+        summaries = {r: store.read_json(f"rounds/{r}/summary.json") for r in rounds}
         return {
             "rounds": rounds,
-            "summaries": {r: store.read_json(f"rounds/{r}/summary.json") for r in rounds},
+            "summaries": summaries,
+            "attempt_meta": {r: attempt_meta(store, r, [a for n in (s or {}).get("schemes", []) for a in n.get("attempts", [])])
+                             for r, s in summaries.items()},
             "research": {r: store.read_json(f"rounds/{r}/hider_research.json") for r in rounds if store.exists(f"rounds/{r}/hider_research.json")},
             "elo": store.read_json("elo.json", {"ratings": {}, "history": [], "meta": {}}),
             "lineage": store.read_json("lineage.json", {"nodes": {}}),
         }
+
+    cache: dict = {}
+
+    @app.get("/api/highlights")
+    def highlights():
+        sig = len(store.list("rounds")) + len(store.list("genomes"))  # cheap change detector
+        if cache.get("sig") != sig:
+            cache.update(sig=sig, data=compute_highlights(store))
+        return cache["data"]
 
     @app.get("/api/attempt/{round_no}/{attempt_id}")
     def attempt(round_no: int, attempt_id: str):
