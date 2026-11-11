@@ -38,6 +38,8 @@ Environment (Linux sandbox, cwd contains challenge.png):
 - Hiders plant DECOY flags in plain bytes (metadata text, data after IEND). Never submit a flag only seen in plain bytes.
 - Escalate rather than give up while time remains. If time runs out without an extracted flag, report_signal your best technique/params guess and submit an empty string.
 
+Unfamiliar signals: when a tool shows something you can't explain (an unusual PNG chunk, a statistical anomaly, a tool error or flag you don't know, an encoding you don't recognise) and your playbook doesn't cover it, spend ONE search_web call on it before guessing, then act on what you learn. The harness will point these out.
+
 Scoring: partial credit for report_signal evidence (anomaly, technique, params); decoys are penalised. Call submit_flag once: as soon as you have an EXTRACTED flag, or when under 10s remain."""
 
 LEARNING_SYSTEM = """
@@ -84,6 +86,45 @@ TOOL_DEFS = {
                    "required": ["label", "plan"], "additionalProperties": False}}},
                    "required": ["hypotheses"], "additionalProperties": False}},
 }
+STANDARD_CHUNKS = {"IHDR", "PLTE", "IDAT", "IEND", "tEXt", "zTXt", "iTXt", "pHYs", "gAMA", "sRGB", "cHRM", "bKGD",
+                   "tIME", "tRNS", "iCCP", "sBIT", "hIST", "sPLT", "eXIf"}
+CHUNK_RE = re.compile(r"\bchunk ([A-Za-z]{4})\b")
+ANOMALY_RE = re.compile(r'"anomaly":\s*"([^"]{8,160})"')
+USAGE_RE = re.compile(r"(?im)^(?:usage: (\S+)|(\S+): (?:unrecognized|invalid|unknown) option.*|.*?(\S+): command not found)")
+ALWAYS_FAMILIAR = ("budget hit", "triage budget", "after iend", "trailer")  # covered by the base prompt
+
+
+def unfamiliar_signals(output: str, exit_code: int, playbook: list[str]) -> list[str]:
+    """Signals in a tool's output that the agent's own playbook doesn't mention yet.
+    As the playbook learns them, the agent stops being nudged to search: familiarity is learned."""
+    found: list[str] = []
+    for c in CHUNK_RE.findall(output):
+        if c not in STANDARD_CHUNKS:
+            found.append(f"non-standard PNG chunk {c}")
+    for a in ANOMALY_RE.findall(output):
+        found.append(a)
+    if exit_code != 0:
+        for m in USAGE_RE.finditer(output):
+            tool = next((g for g in m.groups() if g), None)
+            if tool:
+                found.append(f"how to use {tool.strip(':')}")
+    book = " ".join(playbook).lower()
+
+    def familiar(sig: str) -> bool:
+        low = sig.lower()
+        if any(f in low for f in ALWAYS_FAMILIAR):
+            return True
+        words = [w for w in re.findall(r"[a-z0-9-]{4,}", low) if w not in ("channel", "chunk", "with", "many", "values", "image")]
+        return bool(words) and sum(w in book for w in words) >= max(1, len(words) // 2)
+
+    out, seen = [], set()
+    for f in found:
+        if f not in seen and not familiar(f):
+            seen.add(f)
+            out.append(f)
+    return out[:3]
+
+
 EXTRACTED_RE = re.compile(r'"flag":\s*"(FLAG\{[A-Za-z0-9_]{4,64}\}|HS1:[^"]{1,120})",\s*"where":\s*"EXTRACTED')
 
 
@@ -95,6 +136,10 @@ class AttemptState:
     pending_tools: dict[str, dict] = field(default_factory=dict)
     tool_uses: dict[str, int] = field(default_factory=dict)
     branched: bool = False
+    last_search: dict[str, dict] = field(default_factory=dict)  # lane -> search not yet followed by a command
+    pending_trigger: dict[str, str] = field(default_factory=dict)  # lane -> unfamiliar signal awaiting a search
+    nudged: set = field(default_factory=set)
+    searches: list[dict] = field(default_factory=list)
     branches: list[dict] = field(default_factory=list)
     turns: int = 0
 
@@ -137,6 +182,7 @@ class ClaudeFinder:
                   "submitted_flag": st.submitted, "signals": st.signals, "turns": st.turns,
                   "elapsed_s": round(time.monotonic() - t0, 2), "stop_reason": stop,
                   "pending_tools": st.pending_tools, "tool_uses": st.tool_uses, "branches": st.branches,
+                  "searches": st.searches,
                   "extracted": st.extracted}
         trace.log("end", **{k: v for k, v in result.items() if k in ("finder", "submitted_flag", "turns", "elapsed_s", "stop_reason")},
                   branched=st.branched, saved_tools=list(st.pending_tools))
@@ -212,7 +258,10 @@ class ClaudeFinder:
 
     # ------------------------------------------------------------------ tools
     async def _tool(self, u, provider, sb, trace, deadline, st: AttemptState, lane: str, is_child: bool) -> dict:
-        trace.log("tool_call", lane=lane, tool=u.name, input=u.input, id=u.id)
+        extra = {}
+        if u.name == "run_shell" and lane in st.last_search:  # link the command to the search that led to it
+            extra["informed_by"] = st.last_search.pop(lane)
+        trace.log("tool_call", lane=lane, tool=u.name, input=u.input, id=u.id, **extra)
         out, err = await self._exec_tool(u.name, u.input, provider, sb, trace, deadline, st, lane, is_child)
         return {"type": "tool_result", "tool_use_id": u.id, "content": out, "is_error": err}
 
@@ -230,14 +279,31 @@ class ClaudeFinder:
                 for f in EXTRACTED_RE.findall(res.stdout):
                     st.extracted.setdefault(f, lane)
                 trace.log("tool_result", lane=lane, tool=name, output=out, duration_s=round(res.duration_s, 2), exit_code=res.exit_code)
-                return out + f"\n[{deadline - time.monotonic():.0f}s left]", res.exit_code != 0
+                nudge = ""
+                # every finder can search; learning ones grow out of the nudges as their playbook covers them
+                new = [x for x in unfamiliar_signals(res.stdout + "\n" + res.stderr, res.exit_code, self.genome.playbook)
+                       if x not in st.nudged]
+                if new:
+                    st.nudged.update(new)
+                    st.pending_trigger[lane] = new[0]
+                    trace.log("unfamiliar", lane=lane, signals=new)
+                    nudge = (f"\n[harness: unfamiliar signal(s) not covered by your playbook: {new}. "
+                             f"If it matters for this image, one search_web on it before guessing.]")
+                return out + nudge + f"\n[{deadline - time.monotonic():.0f}s left]", res.exit_code != 0
             if name == "search_web":
                 hits = await self.search.search(inp["query"], max_results=5)
-                trace.log("search", lane=lane, provider=self.search.name, query=inp["query"], titles=[h["title"] for h in hits])
+                trigger = st.pending_trigger.pop(lane, None)
+                trace.log("search", lane=lane, provider=self.search.name, query=inp["query"],
+                          titles=[h["title"] for h in hits], urls=[h.get("url") for h in hits], trigger=trigger)
+                st.last_search[lane] = {"query": inp["query"], "search_i": trace.events, "provider": self.search.name,
+                                        "trigger": trigger, "top": hits[0]["title"] if hits else None}
+                st.searches.append({"query": inp["query"], "trigger": trigger, "lane": lane})
                 return json.dumps(hits)[:6000], False
             if name == "fetch_page":
                 page = await self.search.fetch(inp["url"])
                 trace.log("fetch", lane=lane, provider=self.search.name, url=inp["url"], title=page.get("title"))
+                if lane in st.last_search:
+                    st.last_search[lane]["fetched"] = page.get("title") or inp["url"]
                 return json.dumps(page)[:6000], False
             if name == "report_signal":
                 sig = {"anomaly": inp.get("anomaly", ""), "technique": inp.get("technique"), "params": inp.get("params") or {}, "lane": lane}

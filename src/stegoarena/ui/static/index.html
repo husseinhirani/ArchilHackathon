@@ -53,7 +53,8 @@
   @media (max-width: 1000px) { #agentsGrid { grid-template-columns: 1fr !important; } }
   .lane { display:inline-block; font: 600 10px var(--mono); padding: 0 6px; border-radius: 4px; margin-right: 6px; background:#30363d; }
   .ev.lane-b0 { margin-left: 18px; border-left-style: dashed; } .ev.lane-b1 { margin-left: 36px; border-left-style: dashed; } .ev.lane-b2 { margin-left: 54px; border-left-style: dashed; }
-  .ev.fork { border-color: #39c5cf; } .ev.branch_result { border-color: #39c5cf; background: rgba(57,197,207,.08); } .ev.save_tool { border-color: #a371f7; }
+  .ev.fork { border-color: #39c5cf; } .ev.unfamiliar { border-color: var(--warn); }
+  .informed { font-size: 12px; color: var(--warn); margin-bottom: 2px; } .ev.branch_result { border-color: #39c5cf; background: rgba(57,197,207,.08); } .ev.save_tool { border-color: #a371f7; }
   tr.click { cursor: pointer; } tr.click:hover td { background: var(--panel2); }
   .pb li { margin: 2px 0; } .pb { margin: 6px 0 0 18px; padding: 0; font-size: 13px; }
   details summary { cursor: pointer; color: var(--accent); font-size: 12px; }
@@ -123,7 +124,7 @@ function showRound(r) {
   const s = DATA.summaries[r];
   $("#roundMeta").textContent = `provider=${s.provider} · K=${s.k} forks/scheme · finders=${s.finders.join(",")} · hider=${s.hider} · search=${s.search} · ${s.elapsed_s}s`;
   const res = DATA.research[r];
-  $("#research").innerHTML = res ? `<div class="why" style="margin-top:6px">hider research (${esc(res[0]?.provider)}): ${res.map((q) => `<b>${esc(q.query)}</b> → ${q.results.map((x) => esc(x.title)).slice(0, 2).join(" · ")}`).join("<br>")}</div>` : "";
+  $("#research").innerHTML = res ? `<div class="why" style="margin-top:6px">🔎 hider research before designing (${esc(res[0]?.provider)}):<br>${res.map((q) => `<b>${esc(q.query)}</b>${q.why ? ` <span class="muted">(${esc(q.why)})</span>` : ""} → ${q.results.map((x) => esc(x.title)).slice(0, 2).join(" · ")}`).join("<br>")}</div>` : "";
   $("#cards").innerHTML = s.schemes.map((c) => {
     const sp = c.spec;
     const chips = [sp.technique, sp.technique === "lsb" ? `ch=${sp.channels.join("")} bp=${sp.bit_plane}` : "",
@@ -170,9 +171,11 @@ function render(e) {
   let b = "";
   switch (e.type) {
     case "reasoning": case "text": b = `<div class="t">${esc(e.text)}</div>`; break;
-    case "tool_call": b = `<pre>${e.tool === "run_shell" ? "$ " + esc(e.input.command) : esc(JSON.stringify(e.input))}</pre>`; break;
+    case "tool_call": b = (e.informed_by ? `<div class="informed">🔎 informed by Keenable: “${esc(e.informed_by.query)}”${e.informed_by.top ? ` → <i>${esc(e.informed_by.top)}</i>` : ""}${e.informed_by.trigger ? ` <span class="muted">(after unfamiliar: ${esc(e.informed_by.trigger)})</span>` : ""}</div>` : "") +
+      `<pre>${e.tool === "run_shell" ? "$ " + esc(e.input.command) : esc(JSON.stringify(e.input))}</pre>`; break;
+    case "unfamiliar": b = `❓ unfamiliar signal${e.signals.length > 1 ? "s" : ""} (not in this agent's playbook): ${e.signals.map((x) => `<b>${esc(x)}</b>`).join(", ")}`; break;
     case "tool_result": b = `<pre>${esc(e.output)}</pre>`; break;
-    case "search": b = `<b>${esc(e.provider)}</b>: “${esc(e.query)}”<pre>${e.titles.map(esc).join("\n")}</pre>`; break;
+    case "search": b = `🔎 <b>${esc(e.provider)}</b> search: “${esc(e.query)}”${e.trigger ? `<div class="muted">because of: ${esc(e.trigger)}</div>` : ""}<pre>${e.titles.map(esc).join("\n")}</pre>`; break;
     case "fetch": b = `<b>${esc(e.provider)}</b> fetch ${esc(e.url)}<div class="muted">${esc(e.title)}</div>`; break;
     case "signal": b = `<b>${esc(e.technique)}</b>: ${esc(e.anomaly)} <span class="kv muted">${esc(JSON.stringify(e.params))}</span>`; break;
     case "submit": b = `submitted <b>${esc(e.flag)}</b> ${e.where ? `<span class="muted">(${esc(e.where)})</span>` : ""}`; break;

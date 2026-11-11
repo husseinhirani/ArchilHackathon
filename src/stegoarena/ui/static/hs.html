@@ -91,6 +91,8 @@
   .ev.submit, .ev.scored { border-color: var(--good); }
   .ev.error { border-color: var(--bad); }
   .ev.fork, .ev.upload { border-color: #39c5cf; }
+  .ev.unfamiliar { border-color: var(--warn); }
+  .informed { font-size: 12px; color: var(--warn); margin-bottom: 2px; }
   .hlog { font-size: 12px; font-family: var(--mono); color: var(--muted); margin-top: 10px; max-height: 140px; overflow: auto; }
   .start { text-align: center; padding: 30px 10px; }
   @media (max-width: 860px) { .hide, .race { grid-template-columns: 1fr; } .levels { grid-template-columns: 1fr; } .scoreboard { grid-template-columns: 1fr; } .side.a { text-align: left; } .vs { display: none; } }
@@ -376,9 +378,11 @@ function render(e) {
   let b = "";
   switch (e.type) {
     case "reasoning": case "text": b = `<div class="t">${esc(e.text)}</div>`; break;
-    case "tool_call": b = `<pre>${e.tool === "run_shell" ? "$ " + esc(e.input?.command) : esc(e.tool + " " + JSON.stringify(e.input))}</pre>`; break;
+    case "tool_call": b = (e.informed_by ? `<div class="informed">🔎 informed by Keenable: “${esc(e.informed_by.query)}”${e.informed_by.trigger ? ` <span class="muted">(after: ${esc(e.informed_by.trigger)})</span>` : ""}</div>` : "") +
+      `<pre>${e.tool === "run_shell" ? "$ " + esc(e.input?.command) : esc(e.tool + " " + JSON.stringify(e.input))}</pre>`; break;
+    case "unfamiliar": b = `❓ unfamiliar: ${(e.signals || []).map((x) => `<b>${esc(x)}</b>`).join(", ")}`; break;
     case "tool_result": b = `<pre>${esc(e.output)}</pre>`; break;
-    case "search": b = `🔎 <b>Keenable search</b>: “${esc(e.query)}”<pre>${(e.titles || []).map(esc).join("\n")}</pre>`; break;
+    case "search": b = `🔎 <b>Keenable search</b>: “${esc(e.query)}”${e.trigger ? `<div class="muted">because of: ${esc(e.trigger)}</div>` : ""}<pre>${(e.titles || []).map(esc).join("\n")}</pre>`; break;
     case "fetch": b = `📄 <b>Keenable fetch</b> ${esc(e.url)}<div class="muted">${esc(e.title)}</div>`; break;
     case "signal": b = `<b>${esc(e.technique)}</b>: ${esc(e.anomaly)}`; break;
     case "submit": b = `submitted <b>${esc(e.flag)}</b>`; break;
