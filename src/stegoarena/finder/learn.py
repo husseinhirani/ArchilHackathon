@@ -35,7 +35,7 @@ SYSTEM = """You are coaching yourself: a steganalysis agent that competes in tim
 Given this round's attempts (what you ran, what happened) and the REVEALED ground truth for each image, rewrite your playbook:
 - Keep rules that worked, fix or delete rules that misled you, add rules that would have cracked what you missed.
 - Be concrete and operational: commands, flags, thresholds, orderings, time allocations, decoy patterns, hider tendencies (which techniques/keys the hiders favour).
-- Prefer "detect X -> run Y" rules. Mention your own tools by name when they help.
+- Prefer "detect X -> run Y" rules. When a web search taught you something useful, turn it into a rule so you won't need to search for it again (the harness stops flagging signals your playbook covers). Mention your own tools by name when they help.
 - At most 30 rules. No fluff.
 Keep a saved tool only if it is general (works on any image) and would have saved time."""
 
@@ -48,10 +48,13 @@ def compact_attempt(store: ArenaStore, res: dict) -> dict:
         for line in store.read_bytes(key).decode().splitlines():
             e = json.loads(line)
             if e["type"] == "tool_call" and e.get("tool") == "run_shell":
-                steps.append({"t": e["t"], "lane": e.get("lane"), "cmd": e["input"]["command"][:300]})
+                step = {"t": e["t"], "lane": e.get("lane"), "cmd": e["input"]["command"][:300]}
+                if e.get("informed_by"):
+                    step["after_search"] = e["informed_by"].get("query")
+                steps.append(step)
             elif e["type"] == "tool_result" and e.get("tool") == "run_shell" and steps:
                 steps[-1]["out"] = (e.get("output") or "")[:300]
-            elif e["type"] in ("signal", "submit", "save_tool", "branch_result", "search"):
+            elif e["type"] in ("signal", "submit", "save_tool", "branch_result", "search", "unfamiliar"):
                 steps.append({"t": e["t"], "lane": e.get("lane"), e["type"]: {k: v for k, v in e.items()
                               if k not in ("i", "ts", "t", "type", "lane")}})
     return {"scheme_id": res["scheme_id"], "cracked": res.get("cracked"), "score": res.get("score"),

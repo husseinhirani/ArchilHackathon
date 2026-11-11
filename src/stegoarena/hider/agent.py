@@ -49,7 +49,20 @@ You may only choose parameters inside this fixed family:
 - decoy: none | metadata_text | trailer (fake flag in plain bytes) | pixel (fake flag embedded as a second LSB payload on a disjoint carrier, same order/cipher/key as the real one - extracting it looks just like extracting the real flag; not allowed with palette). Finder is penalised for submitting a decoy.
 prng or a cipher requires key_source != none.
 
+If a research note (web search results) informed a scheme, name the query in that scheme's rationale.
+
 Solvability gate: every scheme must be solvable from the image plus the finder's toolkit (no unrecoverable keys). You win by being hard to *find*, not impossible. Prefer subtle combinations the finder's past behaviour suggests it misses."""
+
+
+TECH_TERMS = {"lsb": "LSB least significant bit", "dct": "DCT coefficient QIM", "palette": "palette index (EzStego)",
+              "alpha": "alpha channel transparency"}
+DETECTOR_QUERIES = [  # what the finder leans on -> what to read about evading it
+    ("pairs", "evading chi-square pairs of values LSB steganalysis"),
+    ("lattice", "QIM steganography detection by coefficient histogram lattice"),
+    ("biglist", "steganography key space brute force resistance"),
+    ("histogram", "histogram preserving steganography"),
+    ("decoy", "steganography decoy misdirection"),
+]
 
 
 class ClaudeHider:
@@ -58,17 +71,39 @@ class ClaudeHider:
         self.search = search
         self.client = anthropic.AsyncAnthropic(api_key=cfg.anthropic_api_key)
 
-    async def research(self, feedback: list[dict]) -> list[dict]:
-        """Optional Keenable step: look up how the finder cracked last round's schemes."""
-        if not self.search or not feedback:
+    async def research(self, feedback: list[dict], opponent_playbook: list[str] | None = None, max_queries: int = 3) -> list[dict]:
+        """Keenable step: study how last generation's schemes got cracked, then look for variants.
+
+        Queries are derived from evidence, not fixed templates:
+          * techniques the finders cracked -> how that steganalysis works (so the hider can dodge it);
+          * the finders' own signals / the champion's playbook -> what detector they lean on;
+          * techniques that survived -> what makes them hard (double down)."""
+        if not self.search:
             return []
-        cracked = sorted({f["spec"]["technique"] for f in feedback if f.get("cracked")})
+        queries: list[tuple[str, str]] = []  # (query, why)
+        cracked = [f for f in feedback if f.get("cracked")]
+        survived = [f for f in feedback if not f.get("cracked")]
+        by_tech: dict[str, int] = {}
+        for f in cracked:
+            by_tech[f["spec"]["technique"]] = by_tech.get(f["spec"]["technique"], 0) + len(f.get("cracked_by") or [1])
+        for tech, _ in sorted(by_tech.items(), key=lambda kv: -kv[1])[:2]:
+            queries.append((f"{TECH_TERMS[tech]} steganalysis detection method", f"finders cracked our {tech} schemes"))
+        sig_text = " ".join(str(s_.get("anomaly", "")) for f in cracked for s_ in (f.get("signals") or [])).lower()
+        sig_text += " " + " ".join(opponent_playbook or []).lower()
+        for needle, q in DETECTOR_QUERIES:
+            if needle in sig_text and len(queries) < max_queries:
+                queries.append((q, f"opponent relies on '{needle}'"))
+                break
+        if survived and len(queries) < max_queries:
+            tech = survived[0]["spec"]["technique"]
+            queries.append((f"{TECH_TERMS[tech]} steganography undetectable variant", f"our {tech} scheme survived; push further"))
+        if not queries:
+            queries.append(("adaptive steganography resistant to statistical steganalysis", "no feedback yet: general survey"))
         notes = []
-        for tech in cracked[:2]:
-            q = f"{tech} steganography detection resistant embedding variant"
+        for q, why in queries[:max_queries]:
             try:
                 hits = await self.search.search(q, max_results=3)
-                notes.append({"query": q, "provider": self.search.name, "results": hits})
+                notes.append({"query": q, "why": why, "provider": self.search.name, "results": hits})
             except Exception as e:
                 log.warning("hider research failed: %s", e)
         return notes
@@ -87,7 +122,7 @@ class ClaudeHider:
             "last_round_results": [
                 {"scheme_id": f["scheme_id"], "spec": f["spec"], "cracked": f["cracked"], "best_score": f["best_score"],
                  "finder_signals": f.get("signals", [])[:3], "how": f.get("how")} for f in feedback],
-            "research_notes": [{"query": r["query"], "titles": [h["title"] for h in r["results"]],
+            "research_notes": [{"query": r["query"], "why": r.get("why"), "titles": [h["title"] for h in r["results"]],
                                 "snippets": [h["snippet"][:300] for h in r["results"]]} for r in research],
         }
         out: list[tuple[SchemeSpec, str | None, str]] = []

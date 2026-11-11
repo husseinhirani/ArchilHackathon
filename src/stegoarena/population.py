@@ -74,7 +74,12 @@ async def evolve(arena, generations: int, schemes_per_hider: int = 2) -> dict:
         from .hider.agent import ClaudeHider
 
         hider = ClaudeHider(cfg, arena.search)
-        props = await asyncio.gather(*(hider.propose(g, schemes_per_hider, [], [], strategy=h.strategy, memory=h.memory,
+        # Keenable research, once per generation, from last generation's evidence (shared by all hiders)
+        prev = store.read_json(f"rounds/{g - 1}/summary.json", {}).get("schemes", []) if g > 1 else []
+        research = await hider.research(prev, opponent_playbook=champion.playbook)
+        if research:
+            store.write_json(f"rounds/{g}/hider_research.json", research)
+        props = await asyncio.gather(*(hider.propose(g, schemes_per_hider, [], research, strategy=h.strategy, memory=h.memory,
                                                      opponent_playbook=champion.playbook, effort="medium") for h in hiders))
         built, owner = [], {}
         for h, plist in zip(hiders, props):
@@ -160,7 +165,7 @@ async def evolve(arena, generations: int, schemes_per_hider: int = 2) -> dict:
         store.write_json("population.json", pop)
         out = {"round": g, "started": t0, "elapsed_s": round(time.time() - t0, 1), "k": 1, "provider": arena.provider.name,
                "finders": [f.id for f in finders], "hider": ",".join(h.id for h in hiders), "search": arena.search.name,
-               "schemes": summary, "learned": learned, "selection": events}
+               "schemes": summary, "learned": learned, "selection": events, "research": research}
         store.write_json(f"rounds/{g}/summary.json", out)
         idx = store.read_json("rounds/index.json", {"rounds": []})
         idx["rounds"] = sorted(set(idx["rounds"]) | {g})
