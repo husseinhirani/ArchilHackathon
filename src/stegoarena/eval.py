@@ -33,7 +33,7 @@ def build_eval_set(store, n: int = 8, *, force: bool = False) -> list[str]:
     for i, spec in enumerate(EVAL_SPECS[:n]):
         sid = f"eval{i}"
         if force or not store.exists(f"rounds/{EVAL_ROUND}/schemes/{sid}/truth.json"):
-            build_scheme(store, EVAL_ROUND, sid, spec, seed=424242 + i, rationale="frozen eval")
+            build_scheme(store, EVAL_ROUND, sid, spec, seed=424242 + i, rationale="frozen eval", random_cover=False)
         ids.append(sid)
     store.write_json("eval/set.json", {"schemes": ids, "built": time.time()})
     return ids

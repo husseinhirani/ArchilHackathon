@@ -11,3 +11,4 @@ logs/
 !.env.example
 *.key
 arena_data_*/
+covers/

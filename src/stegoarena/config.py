@@ -18,6 +18,12 @@ def _env(name: str, default: str | None = None) -> str | None:
     return v if v not in ("", None) else default
 
 
+def random_covers_enabled() -> bool:
+    """RANDOM_COVERS=1 (default): each built scheme gets a fresh random cover image.
+    RANDOM_COVERS=0: covers are derived from the build seed (reproducible runs/tests)."""
+    return _env("RANDOM_COVERS", "1") == "1"
+
+
 @dataclass
 class Config:
     # LLM
@@ -40,6 +46,7 @@ class Config:
     arena_root: Path = field(default_factory=lambda: Path(_env("ARENA_ROOT", str(REPO_ROOT / "arena_data"))))
     cache_dir: Path = field(default_factory=lambda: REPO_ROOT / ".arena_cache")
     max_concurrency: int = field(default_factory=lambda: int(_env("MAX_CONCURRENCY", "5")))
+    random_covers: bool = field(default_factory=random_covers_enabled)
 
 
 def get_config() -> Config:

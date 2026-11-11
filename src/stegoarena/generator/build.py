@@ -12,6 +12,7 @@ from pathlib import Path
 
 from ..arena_schemes import SchemeSpec, difficulty, embed, extract, load_png, save_png, validate_spec
 from ..arena_schemes.decoys import pixel_decoy_spec
+from ..config import random_covers_enabled
 from ..store import ArenaStore
 from .covers import pick_cover
 
@@ -63,12 +64,18 @@ def build_scheme(
     cover_size: int = 512,
     retries: int = 3,
     allow_secret: bool = False,
+    random_cover: bool | None = None,
 ) -> BuiltScheme:
+    """`random_cover`: None follows RANDOM_COVERS (default on). Only the cover image is randomised;
+    the key and decoy stay derived from `seed`."""
     spec = validate_spec(spec, allow_secret=allow_secret)  # solvability gate
+    if random_cover is None:
+        random_cover = random_covers_enabled()
     last_err: Exception | None = None
     for attempt in range(retries):
         s = seed * 101 + attempt
-        cover, cover_name = pick_cover(s, cover_size)
+        cover_seed = secrets.randbits(31) if random_cover else s
+        cover, cover_name = pick_cover(cover_seed, cover_size)
         flag = new_flag()
         key = make_key(spec, s)
         decoy = new_flag() if spec.decoy != "none" else None
@@ -91,6 +98,6 @@ def build_scheme(
                                                "rationale": rationale, "difficulty": difficulty(spec), **spec.to_dict()})
         store.write_json(f"{base}/truth.json", {"flag": flag, "key": key, "decoy_flag": decoy,
                                                 "decoy_spec": decoy_spec.to_dict() if decoy_spec else None,
-                                                "cover": cover_name, "seed": s})
+                                                "cover": cover_name, "cover_seed": cover_seed, "seed": s})
         return BuiltScheme(round_no, scheme_id, spec, flag, key, decoy, difficulty(spec), f"{base}/image.png", parent_id, rationale)
     raise GenerationError(f"scheme {scheme_id} failed round-trip after {retries} tries: {last_err}")
