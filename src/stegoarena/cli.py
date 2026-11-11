@@ -6,7 +6,9 @@
   stegoarena evolve    --generations 2 [--schemes-per-hider 2]  genome populations: learn, branch, select
   stegoarena eval-set  [--n 8]                                   build the frozen held-out set
   stegoarena eval      --genome static|champion|<gid>            same-model learning-curve point
-  stegoarena ui        [--port 8000]                             web UI + replay (reads ./arena_data)
+  stegoarena ui        [--port 8000]                             web UI + replay (reads ./arena_data); Hide & Seek at /hs
+  stegoarena hide      -m "secret" [--level easy|medium|hard] [--photo p.jpg] [--hint ..]   Hide & Seek link
+  stegoarena hs-seed   [--per-level 3] [--finder llm|scripted]  AI-only races -> crack rate by level
 """
 
 from __future__ import annotations
@@ -23,11 +25,17 @@ def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(prog="stegoarena")
     ap.add_argument("-v", "--verbose", action="store_true")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for name in ("smoke", "template", "run", "evolve", "eval-set", "eval", "hs-seed"):
+    for name in ("smoke", "template", "run", "evolve", "eval-set", "eval", "hs-seed", "hide"):
         p = sub.add_parser(name)
         p.add_argument("--provider", choices=["local", "docker", "archil"])
         if name == "smoke":
             p.add_argument("--finder", default="scripted", choices=["scripted", "llm"])
+        if name == "hide":
+            p.add_argument("--message", "-m", required=True, help="the secret to hide")
+            p.add_argument("--level", default="easy", choices=["easy", "medium", "hard"])
+            p.add_argument("--photo", default=None, help="path to a photo (default: a generated image)")
+            p.add_argument("--hint", default="")
+            p.add_argument("--base-url", default="http://127.0.0.1:8000")
         if name == "hs-seed":
             p.add_argument("--per-level", type=int, default=3)
             p.add_argument("--finder", default="llm", choices=["llm", "scripted"])
@@ -64,6 +72,7 @@ def main(argv: list[str] | None = None) -> None:
 
         from .ui.app import create_app
 
+        print(f"\n  Arena replay : http://{a.host}:{a.port}/\n  Hide & Seek  : http://{a.host}:{a.port}/hs   (hide a secret, share the link, race the AI)\n")
         uvicorn.run(create_app(cfg), host=a.host, port=a.port)
         return
     asyncio.run(_async_main(a, cfg))
@@ -76,6 +85,20 @@ async def _async_main(a, cfg) -> None:
         r = await smoke(cfg, a.finder)
         print(json.dumps({k: r.get(k) for k in ("finder", "cracked", "score", "submitted_flag", "elapsed_s", "fork_s", "provider", "stop_reason")}, indent=1))
         raise SystemExit(0 if r.get("cracked") else 1)
+    if a.cmd == "hide":  # Hide & Seek from the terminal: prints the link to send a friend
+        from pathlib import Path
+
+        from .hideseek import build_challenge
+        from .store import make_store
+
+        store = make_store(cfg)
+        photo = Path(a.photo).expanduser().read_bytes() if a.photo else None
+        cid = build_challenge(store, photo, a.message, a.level, a.hint)
+        print(f"Hidden ({a.level}). Start the UI with `uv run stegoarena ui`, then:\n"
+              f"  send to a friend : {a.base_url}/c/{cid}\n  watch the race   : {a.base_url}/c/{cid}?watch=1")
+        if hasattr(store, "flush"):
+            store.flush()
+        return
     if a.cmd == "hs-seed":  # Hide & Seek: AI-only races to measure crack rate by level
         from .hideseek import HideSeek
 
