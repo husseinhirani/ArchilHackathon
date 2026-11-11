@@ -89,4 +89,8 @@ def create_app(cfg) -> FastAPI:
     from .hideseek_routes import mount_hideseek  # Hide & Seek: /hs, /c/{cid}, /api/c/*
 
     mount_hideseek(app, cfg)
+
+    from .learn_routes import mount_learn  # Learn mode: /learn, /api/learn/*
+
+    mount_learn(app, cfg, store=store)
     return app
