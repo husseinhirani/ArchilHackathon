@@ -84,7 +84,7 @@ TOOL_DEFS = {
                    "required": ["label", "plan"], "additionalProperties": False}}},
                    "required": ["hypotheses"], "additionalProperties": False}},
 }
-EXTRACTED_RE = re.compile(r'"flag":\s*"(FLAG\{[A-Za-z0-9_]{4,64}\})",\s*"where":\s*"EXTRACTED')
+EXTRACTED_RE = re.compile(r'"flag":\s*"(FLAG\{[A-Za-z0-9_]{4,64}\}|HS1:[^"]{1,120})",\s*"where":\s*"EXTRACTED')
 
 
 @dataclass

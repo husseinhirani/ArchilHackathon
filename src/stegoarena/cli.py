@@ -23,11 +23,14 @@ def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(prog="stegoarena")
     ap.add_argument("-v", "--verbose", action="store_true")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for name in ("smoke", "template", "run", "evolve", "eval-set", "eval"):
+    for name in ("smoke", "template", "run", "evolve", "eval-set", "eval", "hs-seed"):
         p = sub.add_parser(name)
         p.add_argument("--provider", choices=["local", "docker", "archil"])
         if name == "smoke":
             p.add_argument("--finder", default="scripted", choices=["scripted", "llm"])
+        if name == "hs-seed":
+            p.add_argument("--per-level", type=int, default=3)
+            p.add_argument("--finder", default="llm", choices=["llm", "scripted"])
         if name == "evolve":
             p.add_argument("--generations", type=int, default=1)
             p.add_argument("--schemes-per-hider", type=int, default=2)
@@ -73,6 +76,15 @@ async def _async_main(a, cfg) -> None:
         r = await smoke(cfg, a.finder)
         print(json.dumps({k: r.get(k) for k in ("finder", "cracked", "score", "submitted_flag", "elapsed_s", "fork_s", "provider", "stop_reason")}, indent=1))
         raise SystemExit(0 if r.get("cracked") else 1)
+    if a.cmd == "hs-seed":  # Hide & Seek: AI-only races to measure crack rate by level
+        from .hideseek import HideSeek
+
+        arena = Arena(cfg, finder=a.finder, hider="ladder")
+        try:
+            print(json.dumps(await HideSeek(arena).seed(a.per_level, arena.finder_kind), indent=1))
+        finally:
+            await arena.close()
+        return
     if a.cmd == "template":
         from .sandbox.base import make_provider
 

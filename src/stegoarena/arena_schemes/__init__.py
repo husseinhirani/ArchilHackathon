@@ -6,10 +6,10 @@ not know the spec (technique, params) or the key. Keep this package
 self-contained: relative imports only, deps = numpy, Pillow, cryptography.
 """
 
-from .api import FLAG_RE, TECHNIQUES, difficulty, embed, extract, load_png, save_png
+from .api import FLAG_RE, MSG_PREFIX, match_payload, TECHNIQUES, difficulty, embed, extract, load_png, save_png
 from .spec import SchemeSpec, SpecError, validate_spec
 
 __all__ = [
-    "FLAG_RE", "TECHNIQUES", "SchemeSpec", "SpecError", "difficulty", "embed",
+    "FLAG_RE", "MSG_PREFIX", "match_payload", "TECHNIQUES", "SchemeSpec", "SpecError", "difficulty", "embed",
     "extract", "load_png", "save_png", "validate_spec",
 ]

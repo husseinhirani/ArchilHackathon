@@ -12,10 +12,21 @@ from .spec import TECHNIQUES, SchemeSpec, validate_spec
 from .techniques import TECHNIQUE_IMPLS
 
 FLAG_RE = re.compile(r"FLAG\{[A-Za-z0-9_]{4,64}\}")
+MSG_PREFIX = "HS1:"  # Hide & Seek: free-text secrets are embedded as "HS1:<message>"
+MSG_MAX = 120
+
+
+def match_payload(text: str) -> str | None:
+    """Return the recovered secret if `text` is a valid payload: a FLAG{...} or an HS1: message."""
+    if text.startswith(MSG_PREFIX):
+        msg = text[len(MSG_PREFIX):]
+        return text if 1 <= len(msg) <= MSG_MAX and msg.isprintable() else None
+    m = FLAG_RE.fullmatch(text)
+    return m.group(0) if m else None
 META_KEY_FIELD = "Comment"  # PNG tEXt chunk that carries the key when key_source=metadata
 DECOY_META_FIELD = "Description"
 
-__all__ = ["TECHNIQUES", "FLAG_RE", "embed", "extract", "save_png", "load_png", "difficulty"]
+__all__ = ["TECHNIQUES", "FLAG_RE", "MSG_PREFIX", "MSG_MAX", "match_payload", "embed", "extract", "save_png", "load_png", "difficulty"]
 
 
 def embed(cover: Image.Image, flag: str, spec: SchemeSpec | dict, key: str | None = None) -> Image.Image:
@@ -37,8 +48,7 @@ def extract(img: Image.Image, spec: SchemeSpec | dict, key: str | None = None) -
         text = decrypt(spec.cipher, key, payload).decode("utf-8", errors="replace")
     except Exception:
         return None
-    m = FLAG_RE.fullmatch(text)
-    return m.group(0) if m else None
+    return match_payload(text)
 
 
 def save_png(img: Image.Image, spec: SchemeSpec | dict, key: str | None, decoy_flag: str | None = None) -> bytes:

@@ -15,7 +15,7 @@ from typing import Callable, Iterable
 
 import numpy as np
 
-from .api import FLAG_RE
+from .api import match_payload
 from .bits import LEN_BITS, decrypt, visit_order
 from .spec import CHANNELS, CIPHERS, DCT_COEFFS, SchemeSpec
 from .techniques import _D, _blocks
@@ -134,7 +134,7 @@ def search(img, keys: list[str | None], *, techniques=None, budget_s: float = 30
                         text = decrypt(cipher, key, payload).decode("utf-8")
                     except Exception:
                         continue
-                    if FLAG_RE.fullmatch(text):
+                    if match_payload(text):
                         hits += 1
                         spec = SchemeSpec(**{**c.spec, "order": order, "cipher": cipher,
                                              "key_source": "none" if key is None else "keyed"}).to_dict()

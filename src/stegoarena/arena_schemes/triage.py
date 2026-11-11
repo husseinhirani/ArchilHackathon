@@ -18,11 +18,11 @@ from pathlib import Path
 
 import numpy as np
 
-from .api import FLAG_RE, extract, load_png
+from .api import FLAG_RE, MSG_PREFIX, extract, load_png
 from .bruteforce import bigwordlist, search, wordlist
 from .spec import ALPHA_MODES, CIPHERS, DCT_COEFFS, SchemeSpec
 
-RAW_FLAG = re.compile(rb"FLAG\{[A-Za-z0-9_]{4,64}\}")
+RAW_FLAG = re.compile(rb"FLAG\{[A-Za-z0-9_]{4,64}\}|HS1:[ -~]{1,120}")
 CHANNEL_SETS = [["R", "G", "B"], ["R"], ["G"], ["B"], ["R", "G"], ["R", "B"], ["G", "B"]]
 
 
@@ -119,7 +119,7 @@ def main(argv=None) -> int:
         stats = None
     else:
         keys: list[str | None] = [None]
-        keys += [v for v in meta.values() if v and not FLAG_RE.search(v)]
+        keys += [v for v in meta.values() if v and not FLAG_RE.search(v) and not v.startswith(MSG_PREFIX)]
         keys += [k for k in a.keys.split(",") if k]
         if a.wordlist:
             keys += wordlist()

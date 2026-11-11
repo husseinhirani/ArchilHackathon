@@ -86,4 +86,7 @@ def create_app(cfg) -> FastAPI:
             raise HTTPException(404)
         return FileResponse(p, media_type="image/png")
 
+    from .hideseek_routes import mount_hideseek  # Hide & Seek: /hs, /c/{cid}, /api/c/*
+
+    mount_hideseek(app, cfg)
     return app
