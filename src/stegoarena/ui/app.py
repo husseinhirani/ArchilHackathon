@@ -7,6 +7,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 from ..store import LocalStore
 
@@ -16,6 +17,7 @@ STATIC = Path(__file__).resolve().parent / "static"
 def create_app(cfg) -> FastAPI:
     store = LocalStore(cfg.arena_root)
     app = FastAPI(title="StegoArena")
+    app.mount("/static", StaticFiles(directory=STATIC), name="static")  # shared stylesheet for every page
 
     @app.get("/", response_class=HTMLResponse)
     def index():

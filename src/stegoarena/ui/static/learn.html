@@ -3,48 +3,56 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Learn Stego</title>
+<title>StegoArena · Learn</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/arena.css">
 <style>
-  :root { --bg:#0e1116; --panel:#161b22; --panel2:#1c2230; --line:#2a3140; --text:#e6edf3; --muted:#8b949e; --accent:#7c9cff; --good:#3fb950; --bad:#f85149; --mono:ui-monospace,SFMono-Regular,Menlo,monospace; }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; }
-  a { color:var(--accent); }
-  header { display:flex; align-items:baseline; gap:14px; padding:14px 20px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
-  header h1 { margin:0; font-size:20px; } header .right { margin-left:auto; font-size:12px; color:var(--muted); }
-  main { padding:18px 20px; max-width:1300px; margin:0 auto; }
-  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; min-width:0; }
-  .panel h2 { margin:0 0 10px; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
-  .muted { color:var(--muted); } .mono { font-family:var(--mono); }
-  button, input, select { font:inherit; color:var(--text); }
-  button { background:var(--panel2); border:1px solid var(--line); border-radius:7px; padding:7px 12px; cursor:pointer; }
-  button:hover { border-color:var(--accent); } button.on { border-color:var(--accent); color:var(--accent); }
-  button.primary { background:var(--accent); color:#0b1020; border-color:var(--accent); font-weight:600; }
-  button:disabled { opacity:.5; cursor:default; }
-  input[type=text], select { background:#0d1117; border:1px solid var(--line); border-radius:7px; padding:8px 10px; width:100%; }
-  label { display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; }
-  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  .picker { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; }
-  .picker a { text-decoration:none; color:inherit; } .picker .panel:hover { border-color:var(--accent); }
-  .layout { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:16px; }
-  .stepper { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
-  .stepper button { text-transform:capitalize; }
-  .imgs { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; }
-  .imgs figure { margin:0; } .imgs img, canvas { max-width:100%; height:auto; image-rendering:pixelated; border:1px solid var(--line); border-radius:6px; background:#0d1117; }
-  .card { background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin:8px 0; }
-  .out { font-family:var(--mono); font-size:12px; white-space:pre-wrap; word-break:break-word; margin-top:8px; }
-  .found { color:var(--good); font-weight:700; } .bad { color:var(--bad); }
-  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; }
-  .chat { display:flex; flex-direction:column; gap:8px; max-height:52vh; overflow:auto; margin-bottom:10px; }
-  .msg { padding:8px 10px; border-radius:8px; background:var(--panel2); white-space:pre-wrap; }
-  .msg.me { background:#24304d; align-self:flex-end; }
-  svg { width:100%; height:40px; background:#0d1117; border:1px solid var(--line); border-radius:6px; }
-  @media (max-width:860px) { .layout { grid-template-columns:1fr; } }
+  .picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+  .picker a { color: inherit; } .picker a:hover { text-decoration: none; }
+  .lesson { height: 100%; display: flex; flex-direction: column; gap: 8px; transition: border-color .12s, transform .12s; }
+  .lesson:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .lesson h3 { font-size: 17px; }
+  .lesson .teaser { color: var(--muted); font-size: 13px; flex: 1; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .lesson .go { color: var(--accent-hi); font-weight: 500; font-size: 13px; }
+  .layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .steps { display: flex; gap: 0; margin-bottom: 14px; overflow-x: auto; }
+  .steps button { flex: 1; min-width: 110px; border-radius: 0; border-right-width: 0; justify-content: flex-start; gap: 8px; text-transform: capitalize; color: var(--muted); }
+  .steps button:first-child { border-radius: 8px 0 0 8px; } .steps button:last-child { border-radius: 0 8px 8px 0; border-right-width: 1px; }
+  .steps button i { font-style: normal; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--line2); color: var(--text); font-size: 11px; font-weight: 600; }
+  .steps button.on { color: var(--text); background: var(--panel2); border-color: var(--line2); box-shadow: inset 0 -2px 0 var(--accent); }
+  .steps button.on i { background: var(--accent); color: var(--accent-ink); }
+  .body h3 { font-size: 18px; margin: 0 0 10px; }
+  .body h3 + h3, .body .sec { margin-top: 18px; }
+  .body p { max-width: 72ch; }
+  .imgs { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 10px 0; }
+  .imgs img, canvas { max-width: 100%; height: auto; image-rendering: pixelated; border: 1px solid var(--line); border-radius: 6px; background: var(--bg2); }
+  .sig { margin: 8px 0; }
+  .sig b { display: block; } .sig .tool { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .reading { margin: 8px 0; } .reading .mono { font-size: 12px; }
+  .chat { display: flex; flex-direction: column; gap: 8px; max-height: 56vh; overflow: auto; margin-bottom: 10px; }
+  .msg { padding: 8px 11px; border-radius: 10px 10px 10px 3px; background: var(--panel2); white-space: pre-wrap; max-width: 92%; font-size: 13px; line-height: 1.5; }
+  .msg.me { background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); align-self: flex-end; border-radius: 10px 10px 3px 10px; }
+  .msg.bad { color: var(--accent-hi); }
+  svg.spark { width: 100%; height: 40px; background: var(--bg2); border: 1px solid var(--line); border-radius: 6px; display: block; }
+  .next { margin-top: 18px; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
-<header><h1>📚 Learn stego</h1><span class="muted">Hands-on lessons with an AI tutor</span>
-  <span class="right"><a href="/hs">🫣 Hide &amp; Seek</a> · <a href="/">Lab</a></span></header>
-<main id="view"></main>
+<nav class="topbar">
+  <a class="brand" href="/"><span class="mark"><svg viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" fill="#fff"/><rect x="8" y="1" width="5" height="5" rx="1" fill="#fff" opacity=".45"/><rect x="1" y="8" width="5" height="5" rx="1" fill="#fff" opacity=".45"/><rect x="8" y="8" width="5" height="5" rx="1" fill="#fff"/></svg></span>StegoArena</a>
+  <div class="nav"><a href="/">Lab</a><a href="/hs">Hide &amp; Seek</a><a href="/learn" class="on">Learn</a></div>
+  <div class="right"><span id="tutorTag"></span><span class="powered"><i></i>sandboxes on Archil</span></div>
+</nav>
+
+<main class="wrap">
+  <div class="hero" id="hero">
+    <div><h1>Learn stego</h1><p>Three hands-on lessons. Hide a secret yourself, see exactly what gives it away, then crack a mystery image with an AI tutor beside you.</p></div>
+  </div>
+  <div id="view"></div>
+</main>
+
 <script>
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -55,23 +63,27 @@ const api = async (url, body) => {
   return d;
 };
 const state = { level: null, step: "concept", hide: null, practice: null, photo: null };
+const STEP_LABEL = { concept: "Concept", hide: "Hide", signals: "Signals", practice: "Practice", graduate: "Graduate" };
+const tutorName = (d) => d.tutor === "claude" ? "Claude" : "scripted hints (no API key)";
 
 async function picker() {
   const d = await api("/api/learn/lessons");
+  $("#tutorTag").textContent = `tutor: ${tutorName(d)}`;
   $("#view").innerHTML = `<div class="picker">${Object.entries(d.lessons).map(([k, l]) =>
-    `<a href="/learn/${k}"><div class="panel"><h2>${k}</h2><b>${esc(l.title)}</b></div></a>`).join("")}</div>
-    <p class="muted">Tutor: ${d.tutor === "claude" ? "Claude" : "scripted hints (no API key)"}</p>`;
+    `<a href="/learn/${k}"><div class="panel lesson"><div><span class="badge lvl-${k}">${k}</span></div><h3>${esc(l.title)}</h3><div class="teaser">${esc(l.concept[0] || "")}</div><div class="go">Start lesson →</div></div></a>`).join("")}</div>`;
 }
 
 async function lesson(level) {
   const d = await api("/api/learn/lessons");
   state.level = level; const L = d.lessons[level]; state.L = L;
+  $("#tutorTag").textContent = `tutor: ${tutorName(d)}`;
+  $("#hero").innerHTML = `<div><h1>${esc(L.title)} <span class="badge lvl-${esc(level)}" style="vertical-align:middle">${esc(level)}</span></h1></div><a class="btn ghost" href="/learn">All lessons</a>`;
   $("#view").innerHTML = `<div class="layout"><div>
-      <div class="stepper" id="stepper">${d.steps.map((s) => `<button data-s="${s}">${s}</button>`).join("")}</div>
-      <div class="panel" id="body"></div></div>
-    <div class="panel"><h2>AI tutor <span class="muted" style="text-transform:none">(${d.tutor === "claude" ? "Claude" : "scripted hints"})</span></h2>
+      <div class="steps" id="stepper">${d.steps.map((s, i) => `<button data-s="${s}"><i>${i + 1}</i>${STEP_LABEL[s] || s}</button>`).join("")}</div>
+      <div class="panel body" id="body"></div></div>
+    <div class="panel sticky"><h2>AI tutor <span class="spacer">${tutorName(d)}</span></h2>
       <div class="chat" id="chat"><div class="msg">Ask me anything about this step.</div></div>
-      <div class="row"><input type="text" id="q" placeholder="Ask for a hint…" style="flex:1"><button id="ask">Ask</button></div></div></div>`;
+      <div class="row"><input type="text" id="q" placeholder="Ask for a hint…" class="grow" autocomplete="off"><button class="primary" id="ask">Ask</button></div></div></div>`;
   document.querySelectorAll("[data-s]").forEach((b) => b.onclick = () => go(b.dataset.s));
   $("#ask").onclick = askTutor; $("#q").onkeydown = (e) => e.key === "Enter" && askTutor();
   go("concept");
@@ -81,6 +93,7 @@ function go(step) {
   state.step = step;
   document.querySelectorAll("[data-s]").forEach((b) => b.classList.toggle("on", b.dataset.s === step));
   ({ concept, hide, signals, practice, graduate })[step]();
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 async function askTutor() {
@@ -88,27 +101,29 @@ async function askTutor() {
   const sid = state.practice?.meta.sid || state.hide?.meta.sid;
   const chat = $("#chat"); $("#q").value = "";
   chat.insertAdjacentHTML("beforeend", `<div class="msg me">${esc(q)}</div>`);
-  if (!sid) { chat.insertAdjacentHTML("beforeend", `<div class="msg">Start the hide or practice step first, so I have an image to look at.</div>`); return; }
+  if (!sid) { chat.insertAdjacentHTML("beforeend", `<div class="msg">Start the hide or practice step first, so I have an image to look at.</div>`); chat.scrollTop = chat.scrollHeight; return; }
+  chat.insertAdjacentHTML("beforeend", `<div class="msg muted" id="thinking">thinking…</div>`); chat.scrollTop = chat.scrollHeight;
   try {
     const r = await api(`/api/learn/s/${sid}/tutor`, { message: q, step: state.step });
-    chat.insertAdjacentHTML("beforeend", `<div class="msg">${esc(r.reply)}</div>`);
-  } catch (e) { chat.insertAdjacentHTML("beforeend", `<div class="msg bad">${esc(e.message)}</div>`); }
+    $("#thinking").outerHTML = `<div class="msg">${esc(r.reply)}</div>`;
+  } catch (e) { $("#thinking").outerHTML = `<div class="msg bad">${esc(e.message)}</div>`; }
   chat.scrollTop = chat.scrollHeight;
 }
 
 function concept() {
   const L = state.L;
-  $("#body").innerHTML = `<h2>${esc(L.title)}</h2>${L.concept.map((p) => `<p>${esc(p)}</p>`).join("")}
-    <h2>How it's done in the wild</h2>${L.in_the_wild.map((p) => `<p>${esc(p)}</p>`).join("")}
-    <button class="primary" onclick="go('hide')">Next: hide something</button>`;
+  $("#body").innerHTML = `<h3>${esc(L.title)}</h3>${L.concept.map((p) => `<p>${esc(p)}</p>`).join("")}
+    <h3>How it's done in the wild</h3>${L.in_the_wild.map((p) => `<p>${esc(p)}</p>`).join("")}
+    <div class="next"><button class="primary" onclick="go('hide')">Next: hide something →</button></div>`;
 }
 
 function hide() {
   const h = state.hide;
-  $("#body").innerHTML = `<h2>Hide a secret yourself</h2>
-    <label>Photo (optional)</label><input type="file" id="file" accept="image/*">
-    <label>Secret</label><input type="text" id="msg" maxlength="120" value="${esc(h?.truth?.message || "")}" placeholder="meet me at the fountain">
-    <div class="row" style="margin-top:10px"><button class="primary" id="go">Hide it</button><span class="muted" id="err"></span></div><div id="res"></div>`;
+  $("#body").innerHTML = `<h3>Hide a secret yourself</h3>
+    <p class="muted">Pick any photo (or let us paint one), type a secret, and watch the exact pixels that change.</p>
+    <label>Photo <span class="faint">(optional)</span></label><input type="file" id="file" accept="image/*">
+    <label>Secret</label><input type="text" id="msg" maxlength="120" value="${esc(h?.truth?.message || "")}" placeholder="meet me at the fountain" autocomplete="off">
+    <div class="row" style="margin-top:12px"><button class="primary" id="go">Hide it</button><span class="err" id="err"></span></div><div id="res"></div>`;
   $("#file").onchange = () => {
     const f = $("#file").files[0]; if (!f) return;
     const img = new Image();
@@ -116,6 +131,7 @@ function hide() {
       c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); state.photo = c.toDataURL("image/png"); };
     img.src = URL.createObjectURL(f);
   };
+  $("#msg").onkeydown = (e) => e.key === "Enter" && $("#go").click();
   $("#go").onclick = async () => {
     $("#go").disabled = true; $("#err").textContent = "";
     try { state.hide = await api(`/api/learn/${state.level}/hide`, { message: $("#msg").value, photo_b64: state.photo }); showHide(); }
@@ -128,11 +144,11 @@ function hide() {
 function showHide() {
   const h = state.hide, t = h.truth, s = t.spec;
   $("#res").innerHTML = `<div class="imgs">
-      <figure><img src="${h.cover}"><figcaption class="muted">original</figcaption></figure>
-      <figure><img src="${h.image}"><figcaption class="muted">with your secret</figcaption></figure>
-      <figure><img src="${h.diff}"><figcaption class="muted">every changed pixel, in white</figcaption></figure></div>
-    <div class="card mono">${esc(s.technique)} · channels ${esc(s.channels.join(""))} · bit ${s.bit_plane} · ${esc(s.order)} · cipher ${esc(s.cipher)}${t.key ? ` · key “${esc(t.key)}” (${esc(s.key_source)})` : ""}</div>
-    <button class="primary" onclick="go('signals')">Next: what gives it away</button>`;
+      <figure><img src="${h.cover}"><figcaption>original</figcaption></figure>
+      <figure><img src="${h.image}"><figcaption>with your secret</figcaption></figure>
+      <figure><img src="${h.diff}"><figcaption>every changed pixel, in white</figcaption></figure></div>
+    <div class="card mono small">${esc(s.technique)} · channels ${esc(s.channels.join(""))} · bit ${s.bit_plane} · ${esc(s.order)} · cipher ${esc(s.cipher)}${t.key ? ` · key “${esc(t.key)}” (${esc(s.key_source)})` : ""}</div>
+    <div class="next"><button class="primary" onclick="go('signals')">Next: what gives it away →</button></div>`;
 }
 
 // Row profile: share of neighbouring pixels whose bit 0 differs, per band of rows. A fixed 0..0.6
@@ -140,32 +156,33 @@ function showHide() {
 function spark(vals) {
   const mx = 0.6, w = 400, h = 40, y = (v) => (h - (Math.min(v, mx) / mx) * (h - 4) - 2).toFixed(1);
   const pts = vals.map((v, i) => `${(i / Math.max(1, vals.length - 1) * w).toFixed(1)},${y(v)}`).join(" ");
-  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><line x1="0" x2="${w}" y1="${y(0.5)}" y2="${y(0.5)}" stroke="#6e7681" stroke-dasharray="4 4"/>` +
-    `<polyline fill="none" stroke="#7c9cff" stroke-width="1.5" points="${pts}"/></svg>`;
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><line x1="0" x2="${w}" y1="${y(0.5)}" y2="${y(0.5)}" stroke="#6f6462" stroke-dasharray="4 4"/>` +
+    `<polyline fill="none" stroke="#ca5551" stroke-width="1.5" points="${pts}"/></svg>`;
 }
 
 // One image's measurements: chi per channel, file structure, and the row profile for all three channels.
 function readings(name, d) {
   const f = d.file;
-  return `<div class="card"><b>${esc(name)}</b>
+  return `<div class="card reading"><b>${esc(name)}</b>
     <div class="mono">chi  R ${d.chi.R} · G ${d.chi.G} · B ${d.chi.B}</div>
-    <div class="mono">chunks: ${esc(f.chunks.map((c) => c.type).join(" "))}${Object.keys(f.text).length ? "<br>text: " + esc(JSON.stringify(f.text)) : ""}<br>bytes after IEND: ${f.trailer_bytes}</div>
-    <div class="muted" style="margin-top:6px">row profile, bit 0 (dashed line = random bits)</div>
-    ${["R", "G", "B"].map((c) => `<div class="row" style="flex-wrap:nowrap;gap:6px"><span class="mono">${c}</span><div style="flex:1">${spark(d.row_profile[c])}</div></div>`).join("")}</div>`;
+    <div class="mono muted">chunks: ${esc(f.chunks.map((c) => c.type).join(" "))}${Object.keys(f.text).length ? "<br>text: " + esc(JSON.stringify(f.text)) : ""}<br>bytes after IEND: ${f.trailer_bytes}</div>
+    <div class="muted small" style="margin-top:6px">row profile, bit 0 (dashed line = random bits)</div>
+    ${["R", "G", "B"].map((c) => `<div class="row" style="flex-wrap:nowrap;gap:6px;margin-top:4px"><span class="mono small" style="width:12px">${c}</span><div style="flex:1">${spark(d.row_profile[c])}</div></div>`).join("")}</div>`;
 }
 
-const planeViewer = () => `<canvas id="cv"></canvas>
-  <div class="row"><span class="muted">Bit-plane viewer</span>${["RGB", "R", "G", "B"].map((c) => `<button data-ch="${c}">${c}</button>`).join("")}
-    ${[0, 1, 2].map((p) => `<button data-pl="${p}">bit ${p}</button>`).join("")}<button data-orig>original</button></div>`;
+const planeViewer = () => `<div class="imgframe" style="margin-top:10px;max-width:560px"><canvas id="cv" style="border:none;border-radius:0"></canvas></div>
+  <div class="row" style="margin-top:8px"><span class="muted small">Bit-plane viewer</span><div class="seg">${["RGB", "R", "G", "B"].map((c) => `<button class="sm" data-ch="${c}">${c}</button>`).join("")}</div>
+    <div class="seg">${[0, 1, 2].map((p) => `<button class="sm" data-pl="${p}">bit ${p}</button>`).join("")}</div><button class="sm ghost" data-orig>Show original</button></div>`;
 
 async function signals() {
-  if (!state.hide) { $("#body").innerHTML = `<p>Hide something first, then compare the measurements.</p><button onclick="go('hide')">Go hide</button>`; return; }
+  if (!state.hide) { $("#body").innerHTML = `<div class="empty">Hide something first, then compare the measurements.<br><br><button onclick="go('hide')">Go to the hide step</button></div>`; return; }
   $("#body").innerHTML = `<p class="muted">measuring…</p>`;
   const sg = await api(`/api/learn/s/${state.hide.meta.sid}/signals`);
-  $("#body").innerHTML = `<h2>Signals: before and after</h2><div class="imgs">${readings("original", sg.cover)}${readings("with secret", sg.stego)}</div>
-    ${state.L.signals.map((s) => `<div class="card"><b>${esc(s.name)}</b><div>${esc(s.what)}</div><div class="muted">${esc(s.why)}</div><div class="mono muted">${esc(s.tool)}</div></div>`).join("")}
+  $("#body").innerHTML = `<h3>Signals: before and after</h3><div class="imgs">${readings("original", sg.cover)}${readings("with secret", sg.stego)}</div>
+    <h3>What to look for</h3>
+    ${state.L.signals.map((s) => `<div class="card sig"><b>${esc(s.name)}</b><div>${esc(s.what)}</div><div class="muted small">${esc(s.why)}</div><div class="tool">${esc(s.tool)}</div></div>`).join("")}
     ${planeViewer()}
-    <p><button class="primary" onclick="go('practice')">Next: crack a mystery image</button></p>`;
+    <div class="next"><button class="primary" onclick="go('practice')">Next: crack a mystery image →</button></div>`;
   planes(state.hide.image);
 }
 
@@ -190,23 +207,23 @@ function planes(src) {
 }
 
 async function practice() {
-  if (!state.practice) state.practice = await api(`/api/learn/${state.level}/practice`, {});  // POST: creates the mystery image
+  if (!state.practice) { $("#body").innerHTML = `<p class="muted">building a mystery image…</p>`; state.practice = await api(`/api/learn/${state.level}/practice`, {}); }  // POST: creates the mystery image
   const p = state.practice, sid = p.meta.sid;
-  $("#body").innerHTML = `<h2>Crack the mystery image</h2>
+  $("#body").innerHTML = `<h3>Crack the mystery image</h3>
     <p class="muted">Same tools as the signals step, but there's no original to compare against this time.</p>
     ${planeViewer()}
     <div id="psig"><p class="muted">measuring…</p></div>
-    <h2 style="margin-top:14px">Decode</h2>
-    <div class="grid2">
+    <h3 class="sec">Decode</h3>
+    <div class="field-grid">
       <div><label>Technique</label><select id="d-tech"><option>lsb</option><option>alpha</option><option>palette</option><option>dct</option></select></div>
       <div><label>Channels</label><select id="d-ch"><option>R,G,B</option><option>R</option><option>G</option><option>B</option><option>R,G</option><option>R,B</option><option>G,B</option></select></div>
       <div><label>Bit plane</label><select id="d-bp"><option>0</option><option>1</option><option>2</option></select></div>
       <div><label>Order</label><select id="d-ord"><option>sequential</option><option>prng</option></select></div>
       <div><label>Cipher</label><select id="d-ci"><option>none</option><option>xor</option><option>aes</option></select></div>
-      <div><label>Key</label><input type="text" id="d-key" placeholder="(none)"></div></div>
-    <div class="row" style="margin-top:10px"><button id="dtry">Try decode</button><button id="dwl">Try every wordlist key</button></div>
+      <div><label>Key</label><input type="text" id="d-key" placeholder="(none)" autocomplete="off"></div></div>
+    <div class="row" style="margin-top:12px"><button id="dtry">Try decode</button><button id="dwl">Try every wordlist key</button></div>
     <div class="out" id="dout"></div>
-    <label>Your answer</label><div class="row"><input type="text" id="ans" style="flex:1"><button class="primary" id="sub">Submit</button><button id="gu">Give up</button></div>
+    <label style="margin-top:14px">Your answer</label><div class="row"><input type="text" id="ans" class="grow" autocomplete="off"><button class="primary" id="sub">Submit</button><button class="ghost" id="gu">Give up</button></div>
     <div class="out" id="aout"></div>`;
   planes(p.image);
   api(`/api/learn/s/${sid}/signals`).then((sg) => { $("#psig") && ($("#psig").innerHTML = readings("mystery image", sg.stego)); })
@@ -221,32 +238,33 @@ async function practice() {
     } catch (e) { $("#dout").textContent = e.message; }
   };
   $("#dtry").onclick = () => dec(false); $("#dwl").onclick = () => dec(true);
+  $("#ans").onkeydown = (e) => e.key === "Enter" && $("#sub").click();
   $("#sub").onclick = async () => {
     const r = await api(`/api/learn/s/${sid}/check`, { message: $("#ans").value });
-    $("#aout").innerHTML = r.correct ? `<span class="found">Correct! </span><button class="primary" onclick="go('graduate')">Next</button>` : r.decoy ? `<span class="bad">That's a decoy.</span>` : "Not it. Ask the tutor for a nudge.";
+    $("#aout").innerHTML = r.correct ? `<span class="found">Correct!</span> <button class="primary sm" onclick="go('graduate')">Next →</button>` : r.decoy ? `<span class="bad">That's a decoy.</span>` : "Not it. Ask the tutor for a nudge.";
   };
   $("#gu").onclick = async () => {
     const r = await api(`/api/learn/s/${sid}/giveup`, {});
-    $("#aout").innerHTML = `The secret was <b>${esc(r.reveal.message)}</b> (${esc(r.reveal.spec.technique)}, channels ${esc(r.reveal.spec.channels.join(""))}, bit ${r.reveal.spec.bit_plane}, ${esc(r.reveal.spec.order)}, ${esc(r.reveal.spec.cipher)}${r.reveal.key ? `, key ${esc(r.reveal.key)}` : ""}). <button onclick="go('graduate')">Next</button>`;
+    $("#aout").innerHTML = `The secret was <b>${esc(r.reveal.message)}</b> (${esc(r.reveal.spec.technique)}, channels ${esc(r.reveal.spec.channels.join(""))}, bit ${r.reveal.spec.bit_plane}, ${esc(r.reveal.spec.order)}, ${esc(r.reveal.spec.cipher)}${r.reveal.key ? `, key ${esc(r.reveal.key)}` : ""}). <button class="sm" onclick="go('graduate')">Next →</button>`;
   };
 }
 
 function graduate() {
-  $("#body").innerHTML = `<h2>Ready for a real race?</h2>
-    <p>Hide a secret at the <b>${esc(state.level)}</b> level. Send the link to a friend: when they press start, the AI finder starts hunting too.</p>
-    <label>Secret (max 120 characters)</label><input type="text" id="gmsg" maxlength="120" placeholder="meet me at the fountain at 7">
-    <label>Hint for the seekers (optional; the AI sees it too)</label><input type="text" id="ghint" maxlength="200">
-    <div class="row" style="margin-top:10px"><button class="primary" id="ggo">Create the race</button><span class="muted" id="gerr"></span></div>
+  $("#body").innerHTML = `<h3>Ready for a real race?</h3>
+    <p>Hide a secret at the <span class="badge lvl-${esc(state.level)}">${esc(state.level)}</span> level. Send the link to a friend: when they press start, the AI finder starts hunting too.</p>
+    <label>Secret <span class="faint">(max 120 characters)</span></label><input type="text" id="gmsg" maxlength="120" placeholder="meet me at the fountain at 7" autocomplete="off">
+    <label>Hint for the seekers <span class="faint">(optional; the AI sees it too)</span></label><input type="text" id="ghint" maxlength="200" autocomplete="off">
+    <div class="row" style="margin-top:12px"><button class="primary" id="ggo">Create the race</button><span class="err" id="gerr"></span></div>
     <div id="gres"></div>`;
   $("#ggo").onclick = async () => {
     const message = $("#gmsg").value.trim();
-    if (!message) { $("#gerr").textContent = "type a secret first"; return; }
+    if (!message) { $("#gerr").textContent = "Type a secret first."; return; }
     $("#ggo").disabled = true; $("#gerr").textContent = "";
     try {
       const r = await api("/api/c", { message, level: state.level, hint: $("#ghint").value });
       const play = location.origin + r.play_url;
-      $("#gres").innerHTML = `<div class="card"><label>Challenge link for your friend</label><input type="text" readonly value="${esc(play)}">
-        <div class="row" style="margin-top:8px"><a href="${esc(r.watch_url)}">Watch the race →</a><span class="muted">or</span><a href="${esc(r.play_url)}">play it yourself</a></div></div>`;
+      $("#gres").innerHTML = `<div class="callout good" style="margin-top:14px"><b>Hidden.</b> Send this link to a friend.<label>Challenge link</label><input type="text" readonly value="${esc(play)}">
+        <div class="row" style="margin-top:10px"><a class="btn primary sm" href="${esc(r.watch_url)}">Watch the race →</a><span class="muted small">or</span><a class="btn sm" href="${esc(r.play_url)}">Play it yourself</a></div></div>`;
     } catch (e) { $("#gerr").textContent = e.message; }
     $("#ggo").disabled = false;
   };
