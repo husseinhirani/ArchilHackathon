@@ -3,111 +3,53 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hide &amp; Seek</title>
+<title>StegoArena · Hide &amp; Seek</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/arena.css">
 <style>
-  :root {
-    --bg: #0e1116; --panel: #161b22; --panel2: #1c2230; --line: #2a3140; --text: #e6edf3; --muted: #8b949e;
-    --accent: #7c9cff; --good: #3fb950; --bad: #f85149; --warn: #d29922; --human: #f0a8ff;
-    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; }
-  a { color: var(--accent); }
-  header { display: flex; align-items: baseline; gap: 14px; padding: 14px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-  header h1 { margin: 0; font-size: 20px; }
-  header .tag { color: var(--muted); }
-  header .right { margin-left: auto; font-size: 12px; color: var(--muted); }
-  main { padding: 18px 20px; max-width: 1400px; margin: 0 auto; }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
-  .panel h2 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
-  .muted { color: var(--muted); }
-  .mono { font-family: var(--mono); }
-  button, input, select, textarea { font: inherit; color: var(--text); }
-  button { background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; padding: 7px 12px; cursor: pointer; }
-  button:hover { border-color: var(--accent); }
-  button.primary { background: var(--accent); color: #0b1020; border-color: var(--accent); font-weight: 600; }
-  button.on { border-color: var(--accent); color: var(--accent); }
-  button:disabled { opacity: .5; cursor: default; }
-  input[type=text], textarea, select { background: #0d1117; border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; width: 100%; }
-  label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 4px; }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-
-  /* stats strip */
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 16px; }
-  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
-  .stat .lv { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
-  .stat .big { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .stat .sub { font-size: 12px; color: var(--muted); }
-
-  /* hide view */
-  .hide { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
-  .drop { border: 2px dashed var(--line); border-radius: 10px; min-height: 260px; display: grid; place-items: center; text-align: center; color: var(--muted); cursor: pointer; overflow: hidden; }
-  .drop img { max-width: 100%; max-height: 360px; display: block; }
-  .levels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  .lvl { text-align: left; padding: 10px; }
-  .lvl b { display: block; text-transform: capitalize; }
-  .lvl span { font-size: 12px; color: var(--muted); }
-  .share { margin-top: 14px; padding: 12px; border: 1px solid var(--good); border-radius: 8px; background: rgba(63,185,80,.08); }
-  .share input { font-family: var(--mono); font-size: 12px; }
-
-  /* race view */
-  .scoreboard { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; margin-bottom: 14px; }
-  .side { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
-  .side.h { border-color: color-mix(in srgb, var(--human) 50%, var(--line)); }
-  .side.a { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); text-align: right; }
-  .side .who { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
-  .side .clock { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; font-family: var(--mono); }
-  .vs { color: var(--muted); font-weight: 700; }
-  .banner { padding: 14px 16px; border-radius: 10px; margin-bottom: 14px; font-size: 16px; }
-  .banner.human { background: rgba(240,168,255,.12); border: 1px solid var(--human); }
-  .banner.ai { background: rgba(124,156,255,.12); border: 1px solid var(--accent); }
-  .banner.none { background: var(--panel); border: 1px solid var(--line); }
-  .banner .secret { font-size: 22px; font-weight: 700; margin: 4px 0; }
+  .stepnum { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 11px; font-weight: 700; }
+  .share { margin-top: 14px; }
+  /* race */
+  .scoreboard { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: stretch; margin-bottom: 16px; }
+  .side { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 16px; box-shadow: var(--shadow); }
+  .side.h { border-color: color-mix(in srgb, var(--human) 55%, var(--line)); background: linear-gradient(180deg, var(--human-soft), var(--panel) 70%); }
+  .side.a { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); background: linear-gradient(180deg, var(--accent-soft), var(--panel) 70%); text-align: right; }
+  .side .who { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; font-weight: 600; }
+  .side.h .who { color: var(--human); } .side.a .who { color: var(--accent-hi); }
+  .side .st { font-size: 12px; color: var(--muted); }
+  .vs { align-self: center; color: var(--faint); font-weight: 700; font-size: 12px; letter-spacing: .1em; }
+  .banner { padding: 16px 18px; border-radius: var(--r); margin-bottom: 16px; border: 1px solid var(--line); background: var(--panel); }
+  .banner.human { border-color: var(--human); background: linear-gradient(180deg, var(--human-soft), var(--panel)); }
+  .banner.ai { border-color: var(--accent); background: linear-gradient(180deg, var(--accent-soft), var(--panel)); }
+  .banner .head { font-size: 16px; font-weight: 600; }
+  .banner .secret { font-size: 24px; font-weight: 700; margin: 6px 0; letter-spacing: -.01em; }
   .race { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
-  .imgwrap { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; line-height: 0; }
-  .imgwrap canvas, .imgwrap img { width: 100%; height: auto; image-rendering: pixelated; display: block; }
-  .meter { font-family: var(--mono); font-size: 12px; margin-top: 6px; }
-  .meter b { color: var(--text); }
-  .adv-locked { font-size: 12px; color: var(--muted); padding: 8px 10px; border: 1px dashed var(--line); border-radius: 6px; margin-top: 8px; }
-  .chunk { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
-  .chunk code { background: #0d1117; padding: 1px 6px; border-radius: 4px; }
-  .why-off { font-size: 12px; color: var(--warn); margin-left: 4px; }
-  .tabs { display: flex; gap: 6px; margin: 12px 0 8px; flex-wrap: wrap; }
-  .tool { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
-  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
-  .grid2 label { margin-top: 0; }
-  .out { font-family: var(--mono); font-size: 12px; white-space: pre-wrap; word-break: break-word; margin-top: 8px; }
-  .found { color: var(--good); font-weight: 700; }
-  .hint { padding: 8px 10px; border-left: 3px solid var(--warn); background: rgba(210,153,34,.08); border-radius: 4px; margin-bottom: 10px; }
-  .feed { max-height: 72vh; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
-  .ev { border-left: 3px solid var(--line); padding: 4px 8px; background: var(--panel2); border-radius: 4px; font-size: 13px; }
-  .ev .ty { font-family: var(--mono); font-size: 11px; color: var(--muted); }
-  .ev pre { margin: 4px 0 0; font-family: var(--mono); font-size: 11px; white-space: pre-wrap; word-break: break-word; max-height: 160px; overflow: auto; color: #c9d1d9; }
-  .ev.reasoning, .ev.text { border-color: #6e7681; }
-  .ev.reasoning .t { color: var(--muted); font-style: italic; }
-  .ev.tool_call { border-color: var(--accent); }
-  .ev.search, .ev.fetch { border-color: var(--warn); }
-  .ev.signal { border-color: var(--human); }
-  .ev.submit, .ev.scored { border-color: var(--good); }
-  .ev.error { border-color: var(--bad); }
-  .ev.fork, .ev.upload { border-color: #39c5cf; }
-  .ev.unfamiliar { border-color: var(--warn); }
-  .informed { font-size: 12px; color: var(--warn); margin-bottom: 2px; }
-  .hlog { font-size: 12px; font-family: var(--mono); color: var(--muted); margin-top: 10px; max-height: 140px; overflow: auto; }
-  .start { text-align: center; padding: 30px 10px; }
-  @media (max-width: 860px) { .hide, .race { grid-template-columns: 1fr; } .levels { grid-template-columns: 1fr; } .scoreboard { grid-template-columns: 1fr; } .side.a { text-align: left; } .vs { display: none; } }
+  .tool { background: var(--panel2); border: 1px solid var(--line); border-radius: 0 8px 8px 8px; padding: 12px; }
+  .meter { font-family: var(--mono); font-size: 12px; margin-top: 8px; color: var(--muted); } .meter b { color: var(--text); }
+  .locked { font-size: 12px; color: var(--muted); padding: 8px 10px; border: 1px dashed var(--line2); border-radius: 6px; margin-top: 10px; }
+  .chunk { display: flex; gap: 8px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+  #feed { max-height: 72vh; }
+  .hlog { font-size: 12px; font-family: var(--mono); color: var(--muted); margin-top: 12px; max-height: 150px; overflow: auto; border-top: 1px solid var(--line); padding-top: 8px; }
+  .hlog:empty { display: none; }
+  .start { text-align: center; padding: 26px 10px 10px; }
+  .hs-tabs { margin: 14px 0 0; border-radius: 8px 8px 0 0; border-bottom: none; }
+  @media (max-width: 900px) { .race { grid-template-columns: 1fr; } .scoreboard { grid-template-columns: 1fr; } .side.a { text-align: left; } .vs { display: none; } }
 </style>
 </head>
 <body>
-<header>
-  <h1>🫣 Hide &amp; Seek</h1>
-  <span class="tag">Hide a secret in a photo. Can your friends beat the AI that's hunting for it?</span>
-  <span class="right" id="engine"></span>
-  <span class="right"><a href="/learn">📚 Learn</a></span>
-  <span class="right"><a href="/">Lab: how we calibrated the levels →</a></span>
-</header>
-<main>
-  <div class="stats" id="stats"></div>
+<nav class="topbar">
+  <a class="brand" href="/"><span class="mark"><svg viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" fill="#fff"/><rect x="8" y="1" width="5" height="5" rx="1" fill="#fff" opacity=".45"/><rect x="1" y="8" width="5" height="5" rx="1" fill="#fff" opacity=".45"/><rect x="8" y="8" width="5" height="5" rx="1" fill="#fff"/></svg></span>StegoArena</a>
+  <div class="nav"><a href="/">Lab</a><a href="/hs" class="on">Hide &amp; Seek</a><a href="/learn">Learn</a></div>
+  <div class="right"><span id="engine"></span><span class="powered"><i></i>sandboxes on Archil</span></div>
+</nav>
+
+<main class="wrap">
+  <div class="hero" id="hero">
+    <div><h1>Hide &amp; Seek</h1><p>Hide a secret in a photo, send the link to a friend, and see whether they can beat the AI finder that starts hunting at the same moment.</p></div>
+    <a class="btn ghost" href="/learn">New to stego? Start with a lesson →</a>
+  </div>
+  <div class="kpis" id="stats"></div>
   <div id="view"></div>
 </main>
 
@@ -126,38 +68,39 @@ async function loadStats() {
   try {
     const st = await api("/api/hs/stats");
     $("#stats").innerHTML = Object.entries(st).map(([lv, s]) => `
-      <div class="stat"><div class="lv">${lv}</div>
+      <div class="stat"><div class="lv"><span class="badge lvl-${lv}">${lv}</span></div>
         <div class="big">${s.ai_crack_rate == null ? "—" : Math.round(s.ai_crack_rate * 100) + "%"}</div>
-        <div class="sub">AI crack rate · median ${s.ai_median_s == null ? "—" : s.ai_median_s + "s"} · ${s.n} races${s.humans_solved ? ` · humans solved ${s.humans_solved} (median ${s.human_median_s}s)` : ""}</div></div>`).join("");
+        <div class="sub">AI crack rate · ${s.n} race${s.n === 1 ? "" : "s"}${s.ai_median_s != null ? ` · median ${s.ai_median_s}s` : ""}${s.humans_solved ? ` · humans solved ${s.humans_solved} (median ${s.human_median_s}s)` : ""}</div></div>`).join("");
   } catch (e) {}
 }
 
 /* ------------------------------------------------------------------ HIDE */
 async function hideView() {
   const info = await api("/api/hs/levels");
-  $("#engine").textContent = `AI: ${info.finder} · sandbox: ${info.provider} · search: ${info.search}`;
+  $("#engine").textContent = `finder ${info.finder} · ${info.provider} · ${info.search}`;
   let photo = null, level = "easy";
   $("#view").innerHTML = `
-  <div class="hide">
-    <div class="panel"><h2>1 · Pick a photo</h2>
-      <div class="drop" id="drop"><div>Drop a photo here or click to choose<br><span class="muted">(skip it and we'll paint one for you)</span></div></div>
+  <div class="cols-eq">
+    <div class="panel"><h2><span class="stepnum">1</span> Pick a photo <span class="spacer">optional</span></h2>
+      <div class="drop" id="drop"><div>Drop a photo here or click to choose<br><span class="faint small">Skip it and we'll paint one for you.</span></div></div>
       <input type="file" id="file" accept="image/*" hidden>
     </div>
-    <div class="panel"><h2>2 · Hide your secret</h2>
-      <label for="msg">Secret message (max 120 chars)</label>
-      <input type="text" id="msg" maxlength="120" placeholder="meet me at the fountain at 7">
+    <div class="panel"><h2><span class="stepnum">2</span> Hide your secret</h2>
+      <label for="msg">Secret message <span class="faint">(max 120 characters)</span></label>
+      <input type="text" id="msg" maxlength="120" placeholder="meet me at the fountain at 7" autocomplete="off">
       <label>Difficulty</label>
-      <div class="levels">${Object.entries(info.levels).map(([k, v]) => `<button class="lvl ${k === "easy" ? "on" : ""}" data-lv="${k}"><b>${k}</b><span>${esc(v.blurb)}</span></button>`).join("")}</div>
-      <label for="hint">Hint for the seekers (optional; the AI sees it too)</label>
-      <input type="text" id="hint" maxlength="200" placeholder="it's in the bits">
-      <div class="row" style="margin-top:14px"><button class="primary" id="go">Hide it</button><span class="muted" id="err"></span></div>
+      <div class="levels">${Object.entries(info.levels).map(([k, v]) => `<button class="${k === "easy" ? "on" : ""}" data-lv="${k}"><b>${k}</b><span>${esc(v.blurb)}</span></button>`).join("")}</div>
+      <label for="hint">Hint for the seekers <span class="faint">(optional; the AI sees it too)</span></label>
+      <input type="text" id="hint" maxlength="200" placeholder="it's in the bits" autocomplete="off">
+      <div class="row" style="margin-top:16px"><button class="primary" id="go">Hide it</button><span class="err" id="err"></span></div>
       <div id="share"></div>
     </div>
   </div>`;
   const drop = $("#drop"), file = $("#file");
   drop.onclick = () => file.click();
-  drop.ondragover = (e) => e.preventDefault();
-  drop.ondrop = (e) => { e.preventDefault(); if (e.dataTransfer.files[0]) pick(e.dataTransfer.files[0]); };
+  drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
+  drop.ondragleave = () => drop.classList.remove("over");
+  drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); if (e.dataTransfer.files[0]) pick(e.dataTransfer.files[0]); };
   file.onchange = () => file.files[0] && pick(file.files[0]);
   function pick(f) {
     const img = new Image();
@@ -170,21 +113,22 @@ async function hideView() {
     };
     img.src = URL.createObjectURL(f);
   }
-  document.querySelectorAll(".lvl").forEach((b) => b.onclick = () => {
-    document.querySelectorAll(".lvl").forEach((x) => x.classList.remove("on")); b.classList.add("on"); level = b.dataset.lv;
+  document.querySelectorAll(".levels button").forEach((b) => b.onclick = () => {
+    document.querySelectorAll(".levels button").forEach((x) => x.classList.remove("on")); b.classList.add("on"); level = b.dataset.lv;
   });
+  $("#msg").onkeydown = (e) => e.key === "Enter" && $("#go").click();
   $("#go").onclick = async () => {
     $("#err").textContent = "";
     const message = $("#msg").value.trim();
-    if (!message) { $("#err").textContent = "type a secret first"; return; }
+    if (!message) { $("#err").textContent = "Type a secret first."; $("#msg").focus(); return; }
     $("#go").disabled = true; $("#go").textContent = "Hiding…";
     try {
       const r = await api("/api/c", { method: "POST", body: { message, level, hint: $("#hint").value, photo_b64: photo } });
-      const play = location.origin + r.play_url, watch = location.origin + r.watch_url;
-      $("#share").innerHTML = `<div class="share">
+      const play = location.origin + r.play_url;
+      $("#share").innerHTML = `<div class="callout good share">
         <b>Hidden.</b> Send this link to a friend. When they press start, the AI starts hunting too.
-        <label>Challenge link</label><div class="row"><input type="text" readonly value="${esc(play)}" id="pl"><button id="cp">Copy</button></div>
-        <div class="row" style="margin-top:10px"><a href="${esc(r.watch_url)}">Watch the race →</a><span class="muted">or</span><a href="${esc(r.play_url)}">play it yourself</a></div></div>`;
+        <label>Challenge link</label><div class="row"><input type="text" readonly value="${esc(play)}" id="pl" class="grow"><button id="cp">Copy</button></div>
+        <div class="row" style="margin-top:10px"><a class="btn primary sm" href="${esc(r.watch_url)}">Watch the race →</a><span class="muted small">or</span><a class="btn sm" href="${esc(r.play_url)}">Play it yourself</a></div></div>`;
       $("#cp").onclick = () => { $("#pl").select(); navigator.clipboard?.writeText(play); $("#cp").textContent = "Copied"; };
     } catch (e) { $("#err").textContent = e.message; }
     $("#go").disabled = false; $("#go").textContent = "Hide it";
@@ -197,32 +141,36 @@ const S = { ai_i: 0, h_i: 0, race: null, started: null, now: 0, skew: 0, pix: nu
 async function raceView(cid, watch) {
   const pub = await api(`/api/c/${cid}`);
   const m = pub.meta;
+  $("#hero").innerHTML = `<div><h1>${watch ? "Watch the race" : "Find the secret"} <span class="badge lvl-${esc(m.level)}" style="vertical-align:middle">${esc(m.level)}</span></h1>
+    <p>${watch ? "Your friend hunts with the toolkit below; the AI finder hunts in a forked Archil sandbox. First to submit the secret wins." : "Use the toolkit to analyse the photo and decode the secret. The AI finder is racing you in a forked Archil sandbox."}</p></div>
+    <a class="btn ghost" href="/hs">Hide your own →</a>`;
+  $("#stats").hidden = true;
   $("#view").innerHTML = `
     <div id="bannerbox"></div>
     <div class="scoreboard">
-      <div class="side h"><div class="who">🧑 ${watch ? "your friend" : "you"}</div><div class="clock" id="hclock">0:00.0</div><div class="muted" id="hstat">not started</div></div>
+      <div class="side h"><div class="who">${watch ? "Your friend" : "You"}</div><div class="clock" id="hclock">0:00.0</div><div class="st" id="hstat">not started</div></div>
       <div class="vs">VS</div>
-      <div class="side a"><div class="who">🤖 AI finder</div><div class="clock" id="aclock">0:00.0</div><div class="muted" id="astat">waiting</div></div>
+      <div class="side a"><div class="who">AI finder</div><div class="clock" id="aclock">0:00.0</div><div class="st" id="astat">waiting</div></div>
     </div>
     <div class="race">
-      <div class="panel"><h2>${watch ? "The photo" : "Your toolkit"} · <span style="text-transform:none">${esc(m.level)} level</span></h2>
-        ${m.hint ? `<div class="hint">💡 Hint from the hider: <b>${esc(m.hint)}</b></div>` : ""}
-        <div class="imgwrap"><canvas id="cv"></canvas></div>
+      <div class="panel"><h2>${watch ? "The photo" : "Your toolkit"}</h2>
+        ${m.hint ? `<div class="callout warn" style="margin-bottom:12px">Hint from the hider: <b>${esc(m.hint)}</b></div>` : ""}
+        <div class="imgframe"><canvas id="cv"></canvas></div>
         <div id="startbox"></div>
         <div id="tools" ${watch ? "hidden" : ""}>
-          <div class="tabs">
-            <button data-t="planes" class="on">Bit planes</button><button data-t="inspect">Inspect file</button><button data-t="decode">Try decode</button>
+          <div class="seg hs-tabs">
+            <button data-t="planes" class="on">Bit planes</button><button data-t="inspect">Inspect file</button><button data-t="decode">Decode</button>
           </div>
           <div class="tool" id="t-planes">
-            <div class="row"><span class="muted">Channel</span>${["RGB", "R", "G", "B", "A"].map((c) => `<button data-ch="${c}">${c}</button>`).join("")}
-              <span class="muted" style="margin-left:8px">Bit</span>${[0, 1, 2].map((p) => `<button data-pl="${p}">${p}</button>`).join("")}
-              <button data-orig>original</button></div>
-            <div class="out muted">Hidden bits look like noise where a clean photo shows smooth shapes. Simple hiding starts at the top-left corner, so compare the meter below across channels and bit planes.</div>
-            <div class="meter muted" id="meter"></div>
+            <div class="row"><span class="muted small">Channel</span><div class="seg">${["RGB", "R", "G", "B", "A"].map((c) => `<button class="sm" data-ch="${c}">${c}</button>`).join("")}</div>
+              <span class="muted small" style="margin-left:6px">Bit</span><div class="seg">${[0, 1, 2].map((p) => `<button class="sm" data-pl="${p}">${p}</button>`).join("")}</div>
+              <button class="sm ghost" data-orig>Show original</button></div>
+            <div class="muted small" style="margin-top:8px">Hidden bits look like noise where a clean photo shows smooth shapes. Simple hiding starts at the top-left corner, so compare the meter below across channels and bit planes.</div>
+            <div class="meter" id="meter"></div>
           </div>
           <div class="tool" id="t-inspect" hidden><button id="insp">Read PNG chunks + trailing bytes</button><div class="out" id="inspout"></div></div>
           <div class="tool" id="t-decode" hidden>
-            <div class="grid2">
+            <div class="field-grid">
               <div><label>Technique</label><select id="d-tech">
                 <option value="lsb">LSB (colour channels)</option>
                 <option value="alpha">Alpha LSB (A channel)</option>
@@ -234,23 +182,23 @@ async function raceView(cid, watch) {
               <div id="w-coeff" hidden><label>DCT coefficient (u,v)</label><select id="d-coeff">${["2,1", "1,2", "2,2", "3,1", "1,3", "3,2", "2,3"].map((c) => `<option>${c}</option>`).join("")}</select></div>
               <div id="w-delta" hidden><label>DCT step</label><select id="d-delta">${[12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32].map((d) => `<option ${d === 16 ? "selected" : ""}>${d}</option>`).join("")}</select></div>
             </div>
-            <div id="adv-lock" class="adv-locked">🔒 Order, cipher and key unlock after you use an analysis tool (Bit planes or Inspect file). Look before you guess.</div>
-            <div class="grid2" id="adv" hidden style="margin-top:8px">
+            <div id="adv-lock" class="locked">Order, cipher and key unlock after you use an analysis tool (Bit planes or Inspect file). Look before you guess.</div>
+            <div class="field-grid" id="adv" hidden style="margin-top:10px">
               <div><label>Order</label><select id="d-ord"><option value="sequential">sequential</option><option value="prng">PRNG (key is the seed)</option></select></div>
               <div><label>Cipher</label><select id="d-ci"><option value="none" selected>none</option><option value="xor">XOR</option><option value="aes">AES</option></select></div>
-              <div><label>Key</label><input type="text" id="d-key" placeholder="(none)"></div>
+              <div><label>Key</label><input type="text" id="d-key" placeholder="(none)" autocomplete="off"></div>
             </div>
-            <div class="row" style="margin-top:10px"><button id="dtry">Try decode</button><button id="dwl">Try every wordlist key</button><span class="why-off" id="dwhy"></span></div>
+            <div class="row" style="margin-top:12px"><button id="dtry">Try decode</button><button id="dwl">Try every wordlist key</button><span class="warn small" id="dwhy"></span></div>
             <div class="out" id="dout"></div>
           </div>
-          <label for="guess">Your answer</label>
-          <div class="row"><input type="text" id="guess" placeholder="the secret message" style="flex:1"><button class="primary" id="gbtn">Submit</button><button id="gu">Give up</button></div>
+          <label for="guess" style="margin-top:14px">Your answer</label>
+          <div class="row"><input type="text" id="guess" placeholder="the secret message" class="grow" autocomplete="off"><button class="primary" id="gbtn">Submit</button><button class="ghost" id="gu">Give up</button></div>
           <div class="out" id="gout"></div>
         </div>
         <div class="hlog" id="hlog"></div>
       </div>
-      <div class="panel"><h2>AI finder · live trace <span id="sbx" class="muted mono" style="text-transform:none"></span></h2>
-        <div class="feed" id="feed"><div class="muted">The AI starts when the race starts.</div></div>
+      <div class="panel"><h2><span class="dot" id="aidot"></span> AI finder · live trace <span class="spacer" id="sbx"></span></h2>
+        <div class="feed" id="feed"><div class="empty">The AI starts when the race starts. Every command it runs shows up here.</div></div>
       </div>
     </div>`;
 
@@ -264,6 +212,7 @@ async function raceView(cid, watch) {
   };
   img.src = pub.image;
   let ch = "RGB", pl = 0;
+  const mark = () => document.querySelectorAll("[data-ch],[data-pl]").forEach((b) => b.classList.toggle("on", b.dataset.ch === ch || b.dataset.pl === String(pl)));
   const plane = () => {
     if (!S.pix) return;
     const src = S.pix.data, out = new ImageData(S.pix.width, S.pix.height), d = out.data, idx = { R: [0], G: [1], B: [2], A: [3], RGB: [0, 1, 2] }[ch];
@@ -273,6 +222,7 @@ async function raceView(cid, watch) {
       d[i + 3] = 255;
     }
     S.ctx.putImageData(out, 0, 0);
+    mark();
     // noise meter: how often neighbouring bits differ (pure noise ≈ 50%). Sequential embedding starts at the
     // top-left pixel, so compare the first 64 pixels of row 0 with the rest of the image, per channel.
     const W = S.pix.width, H = S.pix.height, N = Math.min(64, W);
@@ -283,12 +233,12 @@ async function raceView(cid, watch) {
     const names = ch === "RGB" ? ["R", "G", "B"] : [ch];
     $("#meter").innerHTML = `noise in bit ${pl}, image start (first ${N} px) vs rest: ` + names.map((c) => {
       const j = { R: 0, G: 1, B: 2, A: 3 }[c];
-      return `${c} <b>${flip(j, 0, 1, N)}%</b> / ${flip(j, 1, H, W)}%`; }).join(" · ") + ` <span class="muted">(pure noise ≈ 50%)</span>`;
+      return `${c} <b>${flip(j, 0, 1, N)}%</b> / ${flip(j, 1, H, W)}%`; }).join(" · ") + ` <span class="faint">(pure noise ≈ 50%)</span>`;
     unlock();
   };
   document.querySelectorAll("[data-ch]").forEach((b) => b.onclick = () => { ch = b.dataset.ch; plane(); });
   document.querySelectorAll("[data-pl]").forEach((b) => b.onclick = () => { pl = +b.dataset.pl; plane(); });
-  $("[data-orig]").onclick = () => S.pix && S.ctx.putImageData(S.pix, 0, 0);
+  $("[data-orig]").onclick = () => { if (S.pix) { S.ctx.putImageData(S.pix, 0, 0); document.querySelectorAll("[data-ch],[data-pl]").forEach((b) => b.classList.remove("on")); } };
   document.querySelectorAll("[data-t]").forEach((b) => b.onclick = () => {
     document.querySelectorAll("[data-t]").forEach((x) => x.classList.toggle("on", x === b));
     ["planes", "inspect", "decode"].forEach((t) => $("#t-" + t).hidden = t !== b.dataset.t);
@@ -301,10 +251,10 @@ async function raceView(cid, watch) {
     const texts = Object.entries(r.text);
     $("#inspout").innerHTML = `<div>chunks: ${r.chunks.map((c) => esc(c.type)).join(" ")} · image mode ${esc(pub.image_mode)}</div>` +
       (texts.length ? `<div style="margin-top:6px">text chunks (metadata anyone can read):</div>` + texts.map(([k, v]) =>
-        `<div class="chunk"><code>${esc(k)}</code> ${esc(v)} <button data-usekey="${esc(v)}">use as key</button></div>`).join("") +
-        `<div class="muted" style="margin-top:4px">A short word in metadata is often a password, which means something is encrypted.</div>`
+        `<div class="chunk"><code>${esc(k)}</code> ${esc(v)} <button class="sm" data-usekey="${esc(v)}">Use as key</button></div>`).join("") +
+        `<div class="faint" style="margin-top:4px">A short word in metadata is often a password, which means something is encrypted.</div>`
         : `<div style="margin-top:6px">text chunks: (none)</div>`) +
-      `<div style="margin-top:6px">bytes after the end of the PNG: ${r.trailer_bytes}${r.trailer_bytes ? `<pre class="out">${esc(r.trailer.trim())}</pre><span class="muted">Data stuck after the image end is easy to spot, which makes it a classic place for a decoy.</span>` : ""}</div>`;
+      `<div style="margin-top:6px">bytes after the end of the PNG: ${r.trailer_bytes}${r.trailer_bytes ? `<pre class="out">${esc(r.trailer.trim())}</pre><span class="faint">Data stuck after the image end is easy to spot, which makes it a classic place for a decoy.</span>` : ""}</div>`;
     $("#inspout").querySelectorAll("[data-usekey]").forEach((b) => b.onclick = () => {
       $("#d-key").value = b.dataset.usekey; document.querySelector('[data-t="decode"]').click(); validate(); });
     unlock();
@@ -331,7 +281,7 @@ async function raceView(cid, watch) {
     $("#dwl").disabled = !need;
     $("#dwl").title = need ? `Tries all ${pub.wordlist_size} words in the shared wordlist as the key` : "These settings don't use a key, so the wordlist won't change anything";
   }
-  $("#dwl").textContent = `Try every wordlist key (${pub.wordlist_size} keys)`;
+  $("#dwl").textContent = `Try every wordlist key (${pub.wordlist_size})`;
   $("#d-tech").onchange = syncTech;
   ["#d-ord", "#d-ci"].forEach((id) => $(id).onchange = validate);
   $("#d-key").oninput = validate;
@@ -346,17 +296,18 @@ async function raceView(cid, watch) {
     $("#dout").textContent = wordlist ? `trying ${pub.wordlist_size} keys…` : "decoding…";
     try {
       const r = await api(`/api/c/${cid}/try`, { method: "POST", body: { spec: dspec(), key: $("#d-key").value.trim() || null, wordlist } });
-      $("#dout").innerHTML = r.found ? `<span class="found">Found: ${esc(r.message)}</span>${r.key ? ` <span class="muted">(key ${esc(r.key)})</span>` : ""}\n<span class="muted">Submit it below. Careful, decoys exist.</span>`
+      $("#dout").innerHTML = r.found ? `<span class="found">Found: ${esc(r.message)}</span>${r.key ? ` <span class="muted">(key ${esc(r.key)})</span>` : ""}\n<span class="faint">Copied into your answer below. Careful, decoys exist.</span>`
         : r.error ? esc(r.error) : `nothing with those settings${r.tried > 1 ? ` (${r.tried} keys tried)` : ""}`;
       if (r.found) $("#guess").value = r.message;
     } catch (e) { $("#dout").textContent = e.message; }
   };
   $("#dtry").onclick = () => tryDecode(false);
   $("#dwl").onclick = () => tryDecode(true);
+  $("#guess").onkeydown = (e) => e.key === "Enter" && $("#gbtn").click();
   $("#gbtn").onclick = async () => {
     try {
       const r = await api(`/api/c/${cid}/guess`, { method: "POST", body: { message: $("#guess").value } });
-      $("#gout").innerHTML = r.correct ? `<span class="found">Correct! ${r.elapsed_s}s</span>` : r.decoy ? `<span style="color:var(--bad)">That's a decoy 😈</span>` : "Not it. Keep looking.";
+      $("#gout").innerHTML = r.correct ? `<span class="found">Correct! ${r.elapsed_s}s</span>` : r.decoy ? `<span class="bad">That's a decoy.</span>` : "Not it. Keep looking.";
     } catch (e) { $("#gout").textContent = e.message; }
   };
   $("#gu").onclick = async () => { await api(`/api/c/${cid}/giveup`, { method: "POST" }); };
@@ -366,7 +317,7 @@ async function raceView(cid, watch) {
   if (pub.race.status === "waiting") {
     sb.innerHTML = watch
       ? `<div class="start"><div class="muted">Waiting for your friend to press start…</div><div style="margin-top:10px"><button id="solo">Or let the AI go solo now</button></div></div>`
-      : `<div class="start"><button class="primary" id="go" style="font-size:18px;padding:12px 28px">Start the race</button><div class="muted" style="margin-top:8px">The AI starts at the same moment.</div></div>`;
+      : `<div class="start"><button class="primary lg" id="go">Start the race</button><div class="muted small" style="margin-top:8px">The AI starts at the same moment.</div></div>`;
     if (!watch) $("#tools").hidden = true;
     const b = $("#go") || $("#solo");
     b.onclick = async () => { b.disabled = true; await api(`/api/c/${cid}/start${watch ? "?watch=true" : ""}`, { method: "POST" }); sb.innerHTML = ""; if (!watch) $("#tools").hidden = false; };
@@ -379,23 +330,23 @@ function render(e) {
   let b = "";
   switch (e.type) {
     case "reasoning": case "text": b = `<div class="t">${esc(e.text)}</div>`; break;
-    case "tool_call": b = (e.informed_by ? `<div class="informed">🔎 informed by Keenable: “${esc(e.informed_by.query)}”${e.informed_by.trigger ? ` <span class="muted">(after: ${esc(e.informed_by.trigger)})</span>` : ""}</div>` : "") +
+    case "tool_call": b = (e.informed_by ? `<div class="informed">informed by Keenable: “${esc(e.informed_by.query)}”${e.informed_by.trigger ? ` <span class="muted">(after: ${esc(e.informed_by.trigger)})</span>` : ""}</div>` : "") +
       `<pre>${e.tool === "run_shell" ? "$ " + esc(e.input?.command) : esc(e.tool + " " + JSON.stringify(e.input))}</pre>`; break;
-    case "unfamiliar": b = `❓ unfamiliar: ${(e.signals || []).map((x) => `<b>${esc(x)}</b>`).join(", ")}`; break;
+    case "unfamiliar": b = `Unfamiliar: ${(e.signals || []).map((x) => `<b>${esc(x)}</b>`).join(", ")}`; break;
     case "tool_result": b = `<pre>${esc(e.output)}</pre>`; break;
-    case "search": b = `🔎 <b>Keenable search</b>: “${esc(e.query)}”${e.trigger ? `<div class="muted">because of: ${esc(e.trigger)}</div>` : ""}<pre>${(e.titles || []).map(esc).join("\n")}</pre>`; break;
-    case "fetch": b = `📄 <b>Keenable fetch</b> ${esc(e.url)}<div class="muted">${esc(e.title)}</div>`; break;
+    case "search": b = `<b>Keenable search</b>: “${esc(e.query)}”${e.trigger ? `<div class="muted">because of: ${esc(e.trigger)}</div>` : ""}<pre>${(e.titles || []).map(esc).join("\n")}</pre>`; break;
+    case "fetch": b = `<b>Keenable fetch</b> ${esc(e.url)}<div class="muted">${esc(e.title)}</div>`; break;
     case "signal": b = `<b>${esc(e.technique)}</b>: ${esc(e.anomaly)}`; break;
     case "submit": b = `submitted <b>${esc(e.flag)}</b>`; break;
-    case "scored": b = `<b>${e.cracked ? "✅ cracked it" : "❌ did not crack it"}</b> · partial credit ${e.score}`; break;
-    case "fork": b = `⚡ forked sandbox <b class="mono">${esc(e.sandbox)}</b> from the tool template on ${esc(e.provider)} in ${e.fork_s}s`; break;
+    case "scored": b = `<b class="${e.cracked ? "good" : "warn"}">${e.cracked ? "Cracked it" : "Did not crack it"}</b> · partial credit ${e.score}`; break;
+    case "fork": b = `Forked sandbox <b class="mono">${esc(e.sandbox)}</b> from the tool template on ${esc(e.provider)} in ${e.fork_s}s`; break;
     case "upload": b = `uploaded the photo in ${e.upload_s}s`; break;
-    case "start": b = `<span class="mono">${esc(e.model || e.finder)} · budget ${e.budget_s}s</span>`; break;
-    case "end": b = `<span class="mono">stop=${esc(e.stop_reason)} · ${e.turns} turns · ${e.elapsed_s}s</span>`; break;
+    case "start": b = `<span class="mono small">${esc(e.model || e.finder)} · budget ${e.budget_s}s</span>`; break;
+    case "end": b = `<span class="mono small">stop=${esc(e.stop_reason)} · ${e.turns} turns · ${e.elapsed_s}s</span>`; break;
     case "error": b = esc(e.message); break;
     default: b = `<pre>${esc(JSON.stringify(e))}</pre>`;
   }
-  return `<div class="ev ${esc(e.type)}"><div class="ty">${(e.t ?? 0).toFixed(1)}s · ${esc(e.type)}${e.lane && e.lane !== "main" ? " · " + esc(e.lane) : ""}</div>${b}</div>`;
+  return `<div class="ev ${esc(e.type)}"><div class="h"><span>+${(e.t ?? 0).toFixed(1)}s</span><span>${esc(e.type)}${e.lane && e.lane !== "main" ? " · " + esc(e.lane) : ""}</span></div>${b}</div>`;
 }
 
 const clip = (x, n = 40) => { x = String(x ?? ""); return x.length > n ? x.slice(0, n - 1) + "…" : x; };
@@ -409,7 +360,7 @@ function hrender(e) {
     const res = e.error ? `rejected: ${esc(e.error)}` : e.found ? "found something" : e.wordlist ? `tried ${e.tried ?? "?"} keys → nothing` : "nothing";
     return `${t} tried ${esc(tech)}${esc(where)}${extra ? " " + esc(extra) : ""}${keys} → ${res}`;
   }
-  if (e.type === "guess") return `${t} guessed "${esc(clip(e.message))}" → ${e.correct ? "✅ correct" : e.decoy ? "a decoy 😈" : "wrong"}`;
+  if (e.type === "guess") return `${t} guessed "${esc(clip(e.message))}" → ${e.correct ? "correct" : e.decoy ? "a decoy" : "wrong"}`;
   if (e.type === "inspect") return `${t} inspected the file`;
   return `${t} ${esc(e.type)}`;
 }
@@ -427,13 +378,14 @@ async function poll(cid, watch) {
       if (stick) feed.scrollTop = feed.scrollHeight;
       S.ai_i += d.ai.length;
       const fk = d.ai.find((e) => e.type === "fork");
-      if (fk) $("#sbx").textContent = `· ${fk.provider} ${fk.sandbox}`;
+      if (fk) $("#sbx").textContent = `${fk.provider} · ${fk.sandbox}`;
     }
     if (d.human.length) {
       $("#hlog").insertAdjacentHTML("beforeend", d.human.map((e) => `<div>${hrender(e)}</div>`).join(""));
       S.h_i += d.human.length;
     }
     const r = d.race;
+    $("#aidot").className = "dot" + (r.status === "racing" && !r.ai_done ? " live" : "");
     $("#astat").textContent = r.status === "waiting" ? "waiting" : r.ai_done ? (r.ai_cracked ? `cracked in ${r.ai_solved_s}s` : "failed to crack it") : "hunting…";
     $("#hstat").textContent = r.status === "waiting" ? "not started" : r.human_solved_s ? `solved in ${r.human_solved_s}s` : r.human_gave_up ? (r.human ? "gave up" : "no human in this race") : "searching…";
     if (r.status === "done" && d.reveal) { showReveal(r, d.reveal); loadStats(); return; }
@@ -450,12 +402,12 @@ function tick() {
 
 function showReveal(r, rev) {
   const w = r.winner;
-  const head = w === "human" ? "🧑 The human won!" : w === "ai" ? "🤖 The AI found it first." : "🫥 Nobody found it. The secret survived.";
+  const head = w === "human" ? "The human won!" : w === "ai" ? "The AI found it first." : "Nobody found it. The secret survived.";
   const sp = rev.spec || {};
-  $("#bannerbox").innerHTML = `<div class="banner ${w || "none"}"><b>${head}</b>
+  $("#bannerbox").innerHTML = `<div class="banner ${w || "none"}"><div class="head">${head}</div>
     <div class="secret">“${esc(rev.message)}”</div>
-    <div class="muted mono">${esc(sp.technique)} · channels ${esc((sp.channels || []).join(""))} · bit ${sp.bit_plane} · ${esc(sp.order)} · cipher ${esc(sp.cipher)}${rev.key ? ` · key “${esc(rev.key)}” (${esc(sp.key_source)})` : ""}${rev.decoy ? ` · decoy “${esc(rev.decoy.replace(/^HS1:/, ""))}”` : ""}</div>
-    <div style="margin-top:8px"><a href="/hs">Hide your own →</a></div></div>`;
+    <div class="muted mono small">${esc(sp.technique)} · channels ${esc((sp.channels || []).join(""))} · bit ${sp.bit_plane} · ${esc(sp.order)} · cipher ${esc(sp.cipher)}${rev.key ? ` · key “${esc(rev.key)}” (${esc(sp.key_source)})` : ""}${rev.decoy ? ` · decoy “${esc(rev.decoy.replace(/^HS1:/, ""))}”` : ""}</div>
+    <div class="row" style="margin-top:12px"><a class="btn primary sm" href="/hs">Hide your own →</a><a class="btn sm" href="/learn">Learn how it works</a></div></div>`;
   $("#tools") && ($("#tools").hidden = true);
   tick();
 }
