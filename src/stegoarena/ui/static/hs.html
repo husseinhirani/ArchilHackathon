@@ -116,7 +116,7 @@ async function hideView() {
   document.querySelectorAll(".levels button").forEach((b) => b.onclick = () => {
     document.querySelectorAll(".levels button").forEach((x) => x.classList.remove("on")); b.classList.add("on"); level = b.dataset.lv;
   });
-  $("#msg").onkeydown = (e) => e.key === "Enter" && $("#go").click();
+  $("#msg").onkeydown = (e) => { if (e.key === "Enter") $("#go").click(); }; // block body: returning false would cancel every keystroke
   $("#go").onclick = async () => {
     $("#err").textContent = "";
     const message = $("#msg").value.trim();
@@ -303,7 +303,7 @@ async function raceView(cid, watch) {
   };
   $("#dtry").onclick = () => tryDecode(false);
   $("#dwl").onclick = () => tryDecode(true);
-  $("#guess").onkeydown = (e) => e.key === "Enter" && $("#gbtn").click();
+  $("#guess").onkeydown = (e) => { if (e.key === "Enter") $("#gbtn").click(); }; // block body: returning false would cancel every keystroke
   $("#gbtn").onclick = async () => {
     try {
       const r = await api(`/api/c/${cid}/guess`, { method: "POST", body: { message: $("#guess").value } });

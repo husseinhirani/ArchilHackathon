@@ -97,3 +97,15 @@ def test_empty_store_is_friendly(tmp_path, monkeypatch):
         ov = c.get("/api/overview").json()
         assert ov["rounds"] == [] and ov["attempt_meta"] == {}
         assert c.get("/").status_code == 200
+
+
+def test_no_key_handler_returns_false():
+    """`el.onkeydown = (e) => e.key === "Enter" && go()` returns false for every other key, and an
+    on* handler property returning false cancels the keystroke: the text box can't be typed in."""
+    import re
+    from pathlib import Path
+
+    bad = re.compile(r"\.on(keydown|keypress|keyup) *= *\(\w*\) *=> *[^{\s]")
+    static = Path(__file__).resolve().parents[1] / "src/stegoarena/ui/static"
+    offenders = [f"{p.name}:{i}" for p in static.glob("*.html") for i, line in enumerate(p.read_text().splitlines(), 1) if bad.search(line)]
+    assert not offenders, offenders
