@@ -42,9 +42,9 @@ def score_attempt(result: dict, spec: dict, truth: dict) -> dict:
     sub = (result.get("submitted_flag") or "").strip()
     flag = sub == truth["flag"]
     decoy = bool(truth.get("decoy_flag")) and sub == truth["decoy_flag"]
-    if flag:  # a correct extraction implies the lower tiers
+    if flag:  # recovering the payload is impossible without the right technique + params
         detection = technique = True
-        best_params = max(best_params, 0.5)
+        best_params = 1.0
     comps = {"detection": float(detection), "technique": float(technique), "params": round(best_params, 3), "flag": float(flag)}
     total = sum(WEIGHTS[k] * v for k, v in comps.items()) - (DECOY_PENALTY if decoy else 0.0)
     return {"components": comps, "decoy_submitted": decoy, "cracked": flag, "score": round(max(0.0, min(1.0, total)), 4)}

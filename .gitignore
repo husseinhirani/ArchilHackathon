@@ -6,3 +6,7 @@ __pycache__/
 arena_data/
 .playwright-mcp/
 *.tmp
+logs/
+.env.*
+!.env.example
+*.key

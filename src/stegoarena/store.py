@@ -112,8 +112,8 @@ class ArchilDiskStore(ArenaStore):
 
     def list(self, prefix: str) -> list[str]:
         res = self.disk.list_objects(self._k(prefix), recursive=True)
-        objs = getattr(res, "objects", None) or getattr(res, "contents", None) or res
-        return sorted(getattr(o, "key", str(o))[len(self.prefix):] for o in objs)
+        keys = (getattr(o, "key", str(o)) for o in res.objects)
+        return sorted(k[len(self.prefix):] for k in keys if not k.endswith("/"))  # drop directory markers
 
     def exists(self, key: str) -> bool:
         return self.disk.object_exists(self._k(key))

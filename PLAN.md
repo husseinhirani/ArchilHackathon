@@ -11,6 +11,13 @@ uv run stegoarena run --rounds 2 --schemes 5 --k 2 --finder scripted --hider lad
 uv run stegoarena ui                              # http://127.0.0.1:8000
 ```
 
+## Measured on our Archil account (2026-11-10)
+- Region **aws-us-west-2**. The key returns 401 in every other region.
+- Template build (apt + gem + pip + stegseek): **37s**. All tools present. Template id cached in `.arena_cache/archil_template.json`.
+- Fork of the stopped template: **~2s** alone, **~5s** with 8 in parallel. 8 concurrent forks hit no cap, so `MAX_CONCURRENCY=8`.
+- Scripted round, 4 schemes x K=3 = 12 forks: **28.5s** wall clock. Every trace/result/image is mirrored to disk `dsk-0000000000118157` under `arena/`.
+- Teardown verified: after runs, only the stopped template remains.
+
 ## Verified SDK facts (from installed packages, not memory)
 
 | | API | Consequence |
