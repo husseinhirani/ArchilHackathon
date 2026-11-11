@@ -6,7 +6,7 @@ A *hider* agent designs a way to hide a secret flag inside a picture. *Finder* a
 
 Built for the Archil hackathon.
 
-**Live demo:** https://archilhackathon.onrender.com/ (deployed as a free Web Service through [Render](https://render.com), so the first load may take a minute to wake up from idle)
+<!-- **Live demo:** https://archilhackathon.onrender.com/ (deployed as a free Web Service through [Render](https://render.com), so the first load may take a minute to wake up from idle) -->
 
 ---
 
