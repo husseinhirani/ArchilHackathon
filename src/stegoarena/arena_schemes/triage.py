@@ -2,7 +2,8 @@
 
 Prints JSON: {"flags": [{"flag", "where"}], "signals": [...], "metadata": {...}}.
 --quick: raw-byte scan + unkeyed sequential extraction only (the scripted baseline finder).
-Otherwise also tries metadata strings (and --keys / --wordlist) as keys with prng order + ciphers.
+Otherwise: fast search over every carrier (lsb/dct/palette/alpha params) x order x cipher, with keys from
+PNG metadata, --keys, and optionally the bundled --wordlist. Narrow with --only lsb,dct.
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from pathlib import Path
 import numpy as np
 
 from .api import FLAG_RE, extract, load_png
+from .bruteforce import bigwordlist, search, wordlist
 from .spec import ALPHA_MODES, CIPHERS, DCT_COEFFS, SchemeSpec
 
 RAW_FLAG = re.compile(rb"FLAG\{[A-Za-z0-9_]{4,64}\}")
@@ -78,11 +80,17 @@ def lsb_signals(img) -> list[dict]:
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(description="Steganalysis triage for arena_schemes images.")
     ap.add_argument("image")
-    ap.add_argument("--keys", default="", help="comma-separated extra keys")
-    ap.add_argument("--wordlist", action="store_true", help="also try every word in wordlist.txt (slow)")
-    ap.add_argument("--quick", action="store_true")
+    ap.add_argument("--keys", default="", help="comma-separated extra keys to try")
+    ap.add_argument("--wordlist", action="store_true", help="also try every word in wordlist.txt as the key (fast, ~seconds)")
+    ap.add_argument("--biglist", action="store_true", help="try ~16k word+NN keys (slow unless narrowed)")
+    ap.add_argument("--only", default="", help="restrict to techniques, e.g. lsb,dct")
+    ap.add_argument("--channels", default="", help="narrow: e.g. G or RB (lsb exact set; dct channel)")
+    ap.add_argument("--bit-planes", default="", help="narrow lsb: e.g. 0,1")
+    ap.add_argument("--deltas", default="", help="narrow dct: e.g. 16,20")
+    ap.add_argument("--coeffs", default="", help="narrow dct: e.g. 2,1;3,2")
+    ap.add_argument("--quick", action="store_true", help="raw-byte scan + unkeyed sequential extraction only")
     ap.add_argument("--budget", type=float, default=45.0, help="seconds")
     a = ap.parse_args(argv)
     t0 = time.time()
@@ -93,30 +101,40 @@ def main(argv=None) -> int:
     def add(flag, where, spec=None, key=None):
         if flag not in seen:
             seen.add(flag)
-            flags.append({"flag": flag, "where": where, "spec": spec.to_dict() if spec else None, "key": key})
+            flags.append({"flag": flag, "where": where, "spec": spec, "key": key})
 
     iend = raw.find(b"IEND")
     for m in RAW_FLAG.finditer(raw):
-        where = "after IEND (trailer)" if iend != -1 and m.start() > iend else "raw bytes / metadata chunk"
+        where = "after IEND (trailer) - plain bytes, likely a decoy" if iend != -1 and m.start() > iend else "plain bytes / metadata chunk - likely a decoy"
         add(m.group(0).decode(), where)
     meta = {k: str(v) for k, v in (img.info or {}).items() if isinstance(v, (str, bytes))}
     signals = [] if a.quick else lsb_signals(img)
+    techniques = [t for t in a.only.split(",") if t] or None
+    hit = lambda f, spec, key: add(f, f"EXTRACTED via {spec['technique']}" + (f" with key {key!r}" if key else ""), spec, key)  # noqa: E731
 
-    for spec in candidate_specs(img, keyed=False):
-        if (f := extract(img, spec, None)):
-            add(f, f"extracted via {spec.technique}", spec)
-    if not a.quick:
-        keys = [v for v in meta.values() if v and not FLAG_RE.search(v)] + [k for k in a.keys.split(",") if k]
+    if a.quick:
+        for spec in candidate_specs(img, keyed=False):
+            if (f := extract(img, spec, None)):
+                hit(f, spec.to_dict(), None)
+        stats = None
+    else:
+        keys: list[str | None] = [None]
+        keys += [v for v in meta.values() if v and not FLAG_RE.search(v)]
+        keys += [k for k in a.keys.split(",") if k]
         if a.wordlist:
-            keys += (Path(__file__).parent / "wordlist.txt").read_text().split()
-        for key in keys:
-            for spec in candidate_specs(img, keyed=True):
-                if time.time() - t0 > a.budget:
-                    signals.append({"anomaly": "triage budget exhausted", "technique": None})
-                    break
-                if (f := extract(img, spec, key)):
-                    add(f, f"extracted via {spec.technique} with key {key!r}", spec, key)
-    json.dump({"flags": flags, "signals": signals, "metadata": meta, "elapsed_s": round(time.time() - t0, 2)}, sys.stdout, indent=1)
+            keys += wordlist()
+        if a.biglist:
+            keys += bigwordlist()
+        keys = list(dict.fromkeys(keys))
+        narrow = dict(channels=[c for c in a.channels.split(",") if c] or None,
+                      bit_planes=[int(b) for b in a.bit_planes.split(",") if b] or None,
+                      deltas=[int(d) for d in a.deltas.split(",") if d] or None,
+                      coeffs=[c for c in a.coeffs.split(";") if c] or None)
+        stats = search(img, keys, techniques=techniques, budget_s=a.budget, on_hit=hit, **narrow)
+        if not stats["complete"]:
+            signals.append({"anomaly": f"budget hit after {stats['keys_tried']}/{stats['keys_total']} keys - narrow with --only or raise --budget", "technique": None})
+    out = {"flags": flags, "signals": signals, "metadata": meta, "search": stats, "elapsed_s": round(time.time() - t0, 2)}
+    json.dump(out, sys.stdout, indent=1)
     print()
     return 0
 

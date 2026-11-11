@@ -31,7 +31,7 @@ class ProposedScheme(BaseModel):
     palette_colors: int = Field(description="16..256 (palette only)")
     alpha_mode: Literal["alpha_lsb", "transparent_rgb"]
     cipher: Literal["none", "xor", "aes"]
-    key_source: Literal["none", "metadata", "wordlist", "secret"]
+    key_source: Literal["none", "metadata", "wordlist", "biglist"]
     decoy: Literal["none", "metadata_text", "trailer"]
 
 
@@ -45,11 +45,11 @@ You may only choose parameters inside this fixed family:
 - technique: lsb (channels, bit_plane 0..2) | dct (QIM on one 8x8 block-DCT coefficient of channels[0]; dct_coeff, dct_delta 12..32) | palette (index-LSB, palette_colors 16..256) | alpha (alpha_lsb | transparent_rgb)
 - order: sequential | prng (permutation seeded by the key)
 - cipher: none | xor | aes (payload encrypted with the key)
-- key_source: none | metadata (key in a PNG text chunk - visible) | wordlist (key is a word from the finder's wordlist - brute-forceable) | secret (unrecoverable: finder can at best detect)
+- key_source: none | metadata (key in a PNG text chunk - visible) | wordlist (key is one of ~160 words the finder has - brute-forced in seconds) | biglist (key is word+NN, ~16k candidates - only feasible once the finder narrows the technique/params)
 - decoy: none | metadata_text | trailer (plants a fake flag; finder is penalised for submitting it)
 prng or a cipher requires key_source != none.
 
-The benchmark is only interesting if schemes are crackable-but-hard. 'secret' keys make a scheme uncrackable, which wins the round but teaches nothing: use them for at most one scheme per round. Prefer subtle combinations the finder's past behaviour suggests it misses. Diversify techniques."""
+Solvability gate: every scheme must be solvable from the image plus the finder's toolkit (no unrecoverable keys). You win by being hard to *find*, not impossible. Prefer subtle combinations the finder's past behaviour suggests it misses."""
 
 
 class ClaudeHider:
@@ -73,8 +73,15 @@ class ClaudeHider:
                 log.warning("hider research failed: %s", e)
         return notes
 
-    async def propose(self, round_no: int, n: int, feedback: list[dict], research: list[dict]) -> list[tuple[SchemeSpec, str | None, str]]:
+    async def propose(self, round_no: int, n: int, feedback: list[dict], research: list[dict], *,
+                      strategy: str = "", memory: list[str] | None = None, opponent_playbook: list[str] | None = None,
+                      effort: str = "high") -> list[tuple[SchemeSpec, str | None, str]]:
+        system = SYSTEM + (f"\n\nYOUR STRATEGY (your identity in this arena): {strategy}" if strategy else "")
         prompt = {
+            "your_memory_of_past_schemes": (memory or [])[-15:],
+            "opponent_playbook": opponent_playbook or [],
+            "note": "opponent_playbook is the champion finder's own notes, readable on the shared file system. "
+                    "Design schemes that its rules will miss or mislead, while staying solvable.",
             "round": round_no,
             "schemes_wanted": n,
             "last_round_results": [
@@ -87,10 +94,10 @@ class ClaudeHider:
         for attempt in range(2):
             try:
                 resp = await self.client.beta.messages.parse(
-                    model=self.cfg.hider_model, max_tokens=16000, system=SYSTEM,
+                    model=self.cfg.hider_model, max_tokens=16000, system=system,
                     messages=[{"role": "user", "content": f"Propose exactly {n} schemes.\n\n{json.dumps(prompt, indent=1)}"}],
                     output_format=HiderProposal,
-                    thinking={"type": "adaptive"}, output_config={"effort": "high"},
+                    thinking={"type": "adaptive"}, output_config={"effort": effort},
                     betas=["server-side-fallback-2026-07-01"], fallbacks="default",
                 )
                 if resp.stop_reason == "refusal" or resp.parsed_output is None:
@@ -98,7 +105,7 @@ class ClaudeHider:
                 for p in resp.parsed_output.schemes:
                     d = p.model_dump()
                     try:
-                        spec = validate_spec({k: d[k] for k in SchemeSpec.__dataclass_fields__})
+                        spec = validate_spec({k: d[k] for k in SchemeSpec.__dataclass_fields__}, allow_secret=False)
                     except SpecError as e:
                         log.warning("hider spec rejected: %s", e)
                         continue

@@ -64,6 +64,12 @@ class LocalProvider(SandboxProvider):
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_bytes(data)
 
+    async def write_bundle(self, sb: Sandbox, files: dict[str, bytes]) -> None:
+        for path, data in files.items():  # map sandbox-absolute paths onto this fork's dirs
+            if path.startswith("/opt/arena/"):
+                path = sb.tools_dir + path[len("/opt/arena"):]
+            await self.write_file(sb, path, data)
+
     async def destroy(self, sb: Sandbox) -> None:
         if sb.id != "template":
             await asyncio.to_thread(shutil.rmtree, sb.native, True)

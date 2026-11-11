@@ -43,8 +43,12 @@ class DockerProvider(SandboxProvider):
 
     async def fork(self, template: Sandbox, name: str | None = None) -> Sandbox:
         cname = name or f"stegoarena-{uuid.uuid4().hex[:8]}"
+        image = template.native
+        if template.id != "template":  # live container: snapshot its filesystem first
+            image = f"{IMAGE}-snap:{cname}"
+            await _run("docker", "commit", template.native, image)
         code, out, err = await _run("docker", "run", "-d", "--rm", "--network", "none", "--memory", "1g",
-                                    "--name", cname, template.native, "sleep", "900")
+                                    "--name", cname, image, "sleep", "900")
         if code != 0:
             raise RuntimeError(err)
         return Sandbox(cname, self.name, "/work", "/opt/arena", native=cname)

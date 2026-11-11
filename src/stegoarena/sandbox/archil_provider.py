@@ -72,8 +72,12 @@ class ArchilProvider(SandboxProvider):
         return self._wrap(sb)
 
     async def fork(self, template: Sandbox, name: str | None = None) -> Sandbox:
+        # Works for the stopped template AND for a live finder sandbox (memory + files snapshotted;
+        # the source is paused for the snapshot and resumed by the SDK).
         child = await template.native.fork.aio(name=name or f"finder-{uuid.uuid4().hex[:8]}", wait=True)
-        if child.status != "running":
+        if child.status == "paused":
+            child = await child.resume.aio(wait=True)
+        elif child.status != "running":
             child = await child.start.aio(wait=True)
         return self._wrap(child)
 

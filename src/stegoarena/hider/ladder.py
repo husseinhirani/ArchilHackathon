@@ -19,7 +19,8 @@ LADDER: list[dict] = [
     dict(technique="alpha", alpha_mode="alpha_lsb", order="prng", key_source="metadata", decoy="trailer"),
     dict(technique="lsb", channels=["G"], bit_plane=0, order="prng", cipher="aes", key_source="wordlist"),
     dict(technique="dct", channels=["B"], dct_coeff="3,2", dct_delta=24, order="prng", key_source="wordlist", decoy="metadata_text"),
-    dict(technique="palette", palette_colors=128, order="prng", cipher="aes", key_source="secret"),
+    dict(technique="palette", palette_colors=128, order="prng", cipher="aes", key_source="biglist"),
+    dict(technique="dct", channels=["R"], dct_coeff="2,3", dct_delta=18, order="prng", cipher="xor", key_source="biglist", decoy="trailer"),
 ]
 
 MUTATIONS = {
@@ -32,7 +33,7 @@ MUTATIONS = {
     "palette_colors": [32, 64, 128, 256],
     "alpha_mode": ["alpha_lsb", "transparent_rgb"],
     "cipher": ["none", "xor", "aes"],
-    "key_source": ["metadata", "wordlist", "secret"],
+    "key_source": ["metadata", "wordlist", "biglist"],
     "decoy": ["none", "metadata_text", "trailer"],
 }
 

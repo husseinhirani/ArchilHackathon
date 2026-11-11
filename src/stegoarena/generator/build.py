@@ -44,6 +44,8 @@ def make_key(spec: SchemeSpec, rng_seed: int) -> str | None:
         return None
     if spec.key_source in ("metadata", "wordlist"):
         return WORDLIST[h % len(WORDLIST)]
+    if spec.key_source == "biglist":
+        return f"{WORDLIST[h % len(WORDLIST)]}{(h // 7) % 100:02d}"
     return secrets.token_hex(12)  # "secret": never written anywhere the finder can see
 
 
@@ -58,8 +60,9 @@ def build_scheme(
     rationale: str = "",
     cover_size: int = 512,
     retries: int = 3,
+    allow_secret: bool = False,
 ) -> BuiltScheme:
-    spec = validate_spec(spec)
+    spec = validate_spec(spec, allow_secret=allow_secret)  # solvability gate
     last_err: Exception | None = None
     for attempt in range(retries):
         s = seed * 101 + attempt

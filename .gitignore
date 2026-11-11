@@ -10,3 +10,4 @@ logs/
 .env.*
 !.env.example
 *.key
+arena_data_*/

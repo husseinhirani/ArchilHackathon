@@ -50,6 +50,13 @@
   .ev.signal { border-color: #39c5cf; } .ev.submit { border-color: var(--good); } .ev.error { border-color: var(--bad); }
   .ev.scored { border-color: var(--good); background: rgba(63,185,80,.08); }
   .muted { color: var(--muted); }
+  @media (max-width: 1000px) { #agentsGrid { grid-template-columns: 1fr !important; } }
+  .lane { display:inline-block; font: 600 10px var(--mono); padding: 0 6px; border-radius: 4px; margin-right: 6px; background:#30363d; }
+  .ev.lane-b0 { margin-left: 18px; border-left-style: dashed; } .ev.lane-b1 { margin-left: 36px; border-left-style: dashed; } .ev.lane-b2 { margin-left: 54px; border-left-style: dashed; }
+  .ev.fork { border-color: #39c5cf; } .ev.branch_result { border-color: #39c5cf; background: rgba(57,197,207,.08); } .ev.save_tool { border-color: #a371f7; }
+  tr.click { cursor: pointer; } tr.click:hover td { background: var(--panel2); }
+  .pb li { margin: 2px 0; } .pb { margin: 6px 0 0 18px; padding: 0; font-size: 13px; }
+  details summary { cursor: pointer; color: var(--accent); font-size: 12px; }
   .kv { font-family: var(--mono); font-size: 12px; }
 </style>
 </head>
@@ -59,6 +66,15 @@
   <span class="tag">a hider designs, a finder hunts blind, both climb an Elo ladder. Every attempt runs in a forked Archil sandbox.</span>
   <span class="stats" id="stats"></span>
 </header>
+<section class="panel" style="margin:16px 20px 0">
+  <h2>Agents: same model, different minds</h2>
+  <div class="muted kv" id="lockline"></div>
+  <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;margin-top:8px" id="agentsGrid">
+    <div><table id="finders"></table><table id="hiders" style="margin-top:10px"></table></div>
+    <div><canvas id="curve" height="190"></canvas><div class="why" id="curveNote"></div></div>
+  </div>
+  <div id="genome" style="margin-top:10px"></div>
+</section>
 <main>
   <section class="panel">
     <h2>Rounds</h2>
@@ -148,7 +164,8 @@ async function openAttempt(r, a) {
 }
 
 function render(e) {
-  const t = `<div class="h">+${e.t.toFixed(1)}s · ${e.type}${e.tool ? " · " + e.tool : ""}</div>`;
+  const lane = e.lane && e.lane !== "main" ? e.lane : "";
+  const t = `<div class="h">${lane ? `<span class="lane">${esc(lane)}</span>` : ""}+${e.t.toFixed(1)}s · ${e.type}${e.tool ? " · " + e.tool : ""}</div>`;
   let b = "";
   switch (e.type) {
     case "reasoning": case "text": b = `<div class="t">${esc(e.text)}</div>`; break;
@@ -159,12 +176,15 @@ function render(e) {
     case "signal": b = `<b>${esc(e.technique)}</b>: ${esc(e.anomaly)} <span class="kv muted">${esc(JSON.stringify(e.params))}</span>`; break;
     case "submit": b = `submitted <b>${esc(e.flag)}</b> ${e.where ? `<span class="muted">(${esc(e.where)})</span>` : ""}`; break;
     case "scored": b = `<b>score ${e.score}</b> · ${e.cracked ? "flag correct ✅" : "flag not recovered"} <span class="kv muted">${esc(JSON.stringify(e.components))}</span>`; break;
-    case "fork": b = `forked <b>${esc(e.sandbox)}</b> on ${esc(e.provider)} in ${e.fork_s}s`; break;
-    case "start": b = `<span class="kv">${esc(e.finder)} · ${esc(e.model)} · budget ${e.budget_s}s</span>`; break;
+    case "fork": b = e.parent_sandbox ? `🔀 <b>live fork</b> of the running sandbox (memory + files) → ${esc(e.sandbox)} in ${e.fork_s}s` : `forked <b>${esc(e.sandbox)}</b> from the template on ${esc(e.provider)} in ${e.fork_s}s`; break;
+    case "upload": b = `uploaded challenge + toolkit (${e.files} files) in ${e.upload_s}s`; break;
+    case "save_tool": b = `🧰 saved tool <b>${esc(e.name)}</b> (${e.lines} lines): ${esc(e.description)}`; break;
+    case "branch_result": b = e.branches.map((x) => `<div><span class="lane">${esc(x.label)}</span>${x.extracted?.length ? "✅ extracted " + esc(x.extracted[0]) : esc(x.stop)} · ${x.elapsed_s ?? ""}s</div>`).join(""); break;
+    case "start": b = `<span class="kv">${esc(e.finder)} (${esc(e.persona ?? "")}) · ${esc(e.model)} · budget ${e.budget_s}s · playbook ${e.playbook_len ?? 0} rules · tools [${(e.tools || []).map(esc).join(", ")}]</span>`; break;
     case "end": b = `<span class="kv">stop=${esc(e.stop_reason)} · turns=${e.turns} · ${e.elapsed_s}s</span>`; break;
     default: b = `<pre>${esc(JSON.stringify(e))}</pre>`;
   }
-  const div = document.createElement("div"); div.className = `ev ${e.type}`; div.innerHTML = t + b;
+  const div = document.createElement("div"); div.className = `ev ${e.type} ${lane ? "lane-" + lane.split(":")[0] : ""}`; div.innerHTML = t + b;
   $("#replay").appendChild(div); div.scrollIntoView({ block: "nearest" });
 }
 function step() { if (pos < ev.length) render(ev[pos++]); else stop(); }
@@ -172,7 +192,40 @@ function stop() { clearInterval(timer); timer = null; $("#bPlay").textContent = 
 $("#bStep").onclick = step;
 $("#bAll").onclick = () => { stop(); while (pos < ev.length) render(ev[pos++]); };
 $("#bPlay").onclick = () => { if (timer) return stop(); $("#bPlay").textContent = "pause"; timer = setInterval(step, 900); };
-load(); setInterval(() => { if (!timer) load(); }, 15000);
+let curveChart, AG;
+async function loadAgents() {
+  AG = await (await fetch("/api/agents")).json();
+  const pop = AG.population;
+  if (pop) $("#lockline").textContent = `generation ${pop.generation} · locked model/effort: ${(pop.model_lock || []).join(" · ")} · retired ${pop.retired.length}`;
+  const fr = AG.finders.sort((a, b) => (b.active - a.active) || ((b.elo ?? 1200) - (a.elo ?? 1200)));
+  $("#finders").innerHTML = "<tr><th>finder genome</th><th>persona</th><th>gen</th><th style='text-align:right'>playbook</th><th style='text-align:right'>tools</th><th style='text-align:right'>Elo</th></tr>" +
+    fr.map((f) => `<tr class="click" data-g="${f.id}" style="${f.active ? "" : "opacity:.45"}"><td class="kv">🔎 ${esc(f.id)}${f.parent ? `<div class="muted">↳ ${esc(f.parent)}</div>` : ""}</td><td>${esc(f.persona_name)}</td><td class="num">${f.generation}</td><td class="num">${f.playbook.length}</td><td class="num">${Object.keys(f.tools).length}</td><td class="num">${f.elo ? f.elo.toFixed(0) : "-"}</td></tr>`).join("");
+  $("#hiders").innerHTML = "<tr><th>hider genome</th><th>strategy</th><th style='text-align:right'>Elo</th></tr>" +
+    AG.hiders.map((h) => `<tr style="${h.active ? "" : "opacity:.45"}"><td class="kv">🖼 ${esc(h.id)}</td><td>${esc(h.strategy_name)}</td><td class="num">${h.elo ? h.elo.toFixed(0) : "-"}</td></tr>`).join("");
+  $("#finders").querySelectorAll("tr.click").forEach((r) => (r.onclick = () => showGenome(r.dataset.g)));
+  const ev = AG.eval;
+  curveChart?.destroy();
+  if (ev.length) {
+    curveChart = new Chart($("#curve"), { type: "bar", data: { labels: ev.map((r) => r.label), datasets: [
+      { label: "crack rate (held-out set)", data: ev.map((r) => r.crack_rate), backgroundColor: ev.map((r) => r.finder === "static" ? "#8b949e" : "#7c9cff") },
+      { label: "mean score", data: ev.map((r) => r.mean_score), backgroundColor: "#3fb95099" }] },
+      options: { animation: false, scales: { y: { min: 0, max: 1, ticks: { color: "#8b949e" }, grid: { color: "#2a3140" } }, x: { ticks: { color: "#8b949e" } } }, plugins: { legend: { labels: { color: "#e6edf3", boxWidth: 10 } } } } });
+    $("#curveNote").textContent = `same model (${ev[0].model}, effort ${ev[0].effort}) for every bar - only playbook, tools, persona and branching differ.`;
+  }
+}
+async function showGenome(gid) {
+  const f = AG.finders.find((x) => x.id === gid);
+  const tools = Object.entries(f.tools);
+  $("#genome").innerHTML = `<div class="panel" style="background:var(--panel2)"><b class="kv">${esc(f.id)}</b> <span class="muted">${esc(f.persona)}</span>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px"><div><b>Playbook (written by the agent)</b><ol class="pb">${f.playbook.map((l) => `<li>${esc(l)}</li>`).join("") || "<li class='muted'>empty</li>"}</ol></div>
+    <div><b>Toolkit (scripts it wrote)</b>${tools.map(([n, t]) => `<details><summary>${esc(n)}: ${esc(t.description)} (used ${t.uses}×, ${t.wins} cracks)</summary><pre class="kv" data-tool="${esc(n)}">loading…</pre></details>`).join("") || "<div class='muted'>none yet</div>"}
+    <div style="margin-top:8px"><b>Learning log</b>${f.learning.map((l) => `<div class="why">gen ${l.generation}: ${esc(l.insight)} · committed [${l.committed.join(", ")}] rejected [${l.rejected.join(", ")}]</div>`).join("")}</div></div></div></div>`;
+  $("#genome").querySelectorAll("details").forEach((d) => d.addEventListener("toggle", async () => {
+    const pre = d.querySelector("pre"); if (pre.dataset.done) return;
+    pre.textContent = (await (await fetch(`/api/tool/${gid}/${pre.dataset.tool}`)).json()).code; pre.dataset.done = 1; }));
+}
+loadAgents();
+load(); setInterval(() => { if (!timer) { load(); loadAgents(); } }, 15000);
 </script>
 </body>
 </html>

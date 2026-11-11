@@ -35,26 +35,37 @@ class Arena:
             log.warning("ANTHROPIC_API_KEY missing: finder=%s hider=%s", self.finder_kind, self.hider_kind)
         self.sem = asyncio.Semaphore(cfg.max_concurrency)
         self._template: Sandbox | None = None
+        self._template_lock = asyncio.Lock()
 
     # ------------------------------------------------------------ attempts
     async def template(self) -> Sandbox:
+        async with self._template_lock:
+            return await self._template_unlocked()
+
+    async def _template_unlocked(self) -> Sandbox:
         if self._template is None:
             t0 = time.monotonic()
             self._template = await self.provider.create_from_template()
             log.info("template ready (%s) in %.1fs", self.provider.name, time.monotonic() - t0)
         return self._template
 
-    async def attempt(self, round_no: int, scheme: BuiltScheme, k_index: int, finder_kind: str) -> dict:
-        attempt_id = f"{scheme.scheme_id}-k{k_index}-{uuid.uuid4().hex[:4]}"
+    async def attempt(self, round_no: int, scheme: BuiltScheme, k_index: int, finder) -> dict:
+        """finder: "scripted" | "llm" (static Claude) | FinderGenome."""
+        from .genome import FinderGenome, static_finder
+
+        genome = finder if isinstance(finder, FinderGenome) else (static_finder() if finder == "llm" else None)
+        tag = genome.id if genome else "scripted"
+        attempt_id = f"{scheme.scheme_id}-{tag}-k{k_index}-{uuid.uuid4().hex[:4]}"
         trace = Trace(self.store, round_no, attempt_id)
         async with self.sem:
+            trace.t0 = time.time()  # replay clock starts when the attempt leaves the queue
             t_fork = time.monotonic()
             try:
-                sb = await self.provider.fork(await self.template(), name=f"sa-{attempt_id}")
+                sb = await self.provider.fork(await self.template(), name=f"sa-{attempt_id}"[:60])
             except Exception as e:
                 log.exception("fork failed for %s", attempt_id)
                 trace.log("error", message=f"fork failed: {e}")
-                result = {"finder": finder_kind, "submitted_flag": None, "signals": [], "stop_reason": "fork_failed",
+                result = {"finder": tag, "submitted_flag": None, "signals": [], "stop_reason": "fork_failed",
                           "attempt_id": attempt_id, "scheme_id": scheme.scheme_id, "round": round_no, "score": 0.0,
                           "cracked": False, "components": {}, "decoy_submitted": False}
                 trace.result(result)
@@ -62,17 +73,22 @@ class Arena:
             fork_s = time.monotonic() - t_fork
             trace.log("fork", sandbox=sb.id, provider=sb.provider, fork_s=round(fork_s, 3))
             try:
-                await self.provider.write_file(sb, "challenge.png", self.store.read_bytes(scheme.image_key))
-                if finder_kind == "llm":
+                files = {"challenge.png": self.store.read_bytes(scheme.image_key)}
+                if genome is not None and genome.learning:  # the genome's toolkit rides along in the same upload
+                    files.update({f"/opt/arena/mytools/{n}": b for n, b in genome.tool_files(self.store).items()})
+                t_up = time.monotonic()
+                await self.provider.write_bundle(sb, files)
+                trace.log("upload", files=len(files), upload_s=round(time.monotonic() - t_up, 3))
+                if genome is not None:
                     from .finder.agent import ClaudeFinder
 
-                    result = await ClaudeFinder(self.cfg, self.search).run(self.provider, sb, trace)
+                    result = await ClaudeFinder(self.cfg, self.search, genome).run(self.provider, sb, trace)
                 else:
                     result = await run_scripted(self.provider, sb, trace)
             except Exception as e:
                 log.exception("attempt %s crashed", attempt_id)
                 trace.log("error", message=f"attempt crashed: {e}")
-                result = {"finder": finder_kind, "submitted_flag": None, "signals": [], "stop_reason": "crash"}
+                result = {"finder": tag, "submitted_flag": None, "signals": [], "stop_reason": "crash"}
             finally:
                 await self.provider.destroy(sb)
         spec = scheme.spec.to_dict()
@@ -121,11 +137,10 @@ class Arena:
         summary = []
         for s in built:
             mine = [r for r in results if r["scheme_id"] == s.scheme_id]
-            for fk in finder_kinds:
-                fv = [r for r in mine if (r.get("finder") or "").startswith("claude" if fk == "llm" else "scripted")]
-                if fv:
-                    best = max(fv, key=lambda r: r["score"])
-                    elo.update(round_no=round_no, finder=best["finder"], scheme=s.scheme_id, difficulty=s.difficulty, score=best["score"])
+            for fid in sorted({r.get("finder") for r in mine}):
+                fv = [r for r in mine if r.get("finder") == fid]
+                best = max(fv, key=lambda r: r["score"])
+                elo.update(round_no=round_no, finder=fid, scheme=s.scheme_id, difficulty=s.difficulty, score=best["score"])
             best = max(mine, key=lambda r: r["score"]) if mine else {"score": 0, "cracked": False, "signals": []}
             how = None
             if best.get("cracked"):

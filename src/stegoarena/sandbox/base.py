@@ -67,6 +67,20 @@ class SandboxProvider(ABC):
     @abstractmethod
     async def destroy(self, sb: Sandbox) -> None: ...
 
+    async def write_bundle(self, sb: Sandbox, files: dict[str, bytes]) -> None:
+        """Ship many files in ONE upload (tar.gz) + one extract. Relative paths land in
+        sb.workdir; absolute paths as given. Much faster than per-file uploads on Archil."""
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+            for path, data in files.items():
+                ti = tarfile.TarInfo(path.lstrip("/") if path.startswith("/") else f"{sb.workdir.lstrip('/')}/{path}")
+                ti.size, ti.mode = len(data), 0o644
+                tar.addfile(ti, io.BytesIO(data))
+        await self.write_file(sb, "/tmp/bundle.tgz", buf.getvalue())
+        res = await self.exec(sb, "tar -xzf /tmp/bundle.tgz -C / && rm /tmp/bundle.tgz", timeout_s=30)
+        if res.exit_code != 0:
+            raise RuntimeError(f"bundle extract failed: {res.stderr[-500:]}")
+
     async def close(self) -> None:
         pass
 

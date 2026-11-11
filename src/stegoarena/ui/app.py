@@ -45,6 +45,40 @@ def create_app(cfg) -> FastAPI:
         base = f"rounds/{round_no}/schemes/{scheme_id}"
         return {"spec": store.read_json(f"{base}/spec.json"), "truth": store.read_json(f"{base}/truth.json")}
 
+    @app.get("/api/agents")
+    def agents():
+        pop = store.read_json("population.json")
+        elo = store.read_json("elo.json", {"ratings": {}})["ratings"]
+        out = {"population": pop, "finders": [], "hiders": [], "eval": []}
+        if pop:
+            for gid in pop["finders"] + [r for r in pop.get("retired", []) if r.startswith("f-")]:
+                base = f"genomes/finders/{gid}"
+                if not store.exists(f"{base}/genome.json"):
+                    continue
+                g = store.read_json(f"{base}/genome.json")
+                pb = store.read_bytes(f"{base}/playbook.md").decode() if store.exists(f"{base}/playbook.md") else ""
+                learned = [json.loads(l) for l in store.read_bytes(f"{base}/learning.jsonl").decode().splitlines()] if store.exists(f"{base}/learning.jsonl") else []
+                out["finders"].append({**g, "active": gid in pop["finders"], "elo": elo.get(f"finder:{gid}"),
+                                       "playbook": [l[2:] for l in pb.splitlines() if l.startswith("- ")],
+                                       "tools": store.read_json(f"{base}/tools/index.json", {}), "learning": learned})
+            for gid in pop["hiders"] + [r for r in pop.get("retired", []) if r.startswith("h-")]:
+                base = f"genomes/hiders/{gid}"
+                if store.exists(f"{base}/genome.json"):
+                    h = store.read_json(f"{base}/genome.json")
+                    mem = store.read_bytes(f"{base}/memory.md").decode() if store.exists(f"{base}/memory.md") else ""
+                    out["hiders"].append({**h, "active": gid in pop["hiders"], "elo": elo.get(f"hider:{gid}"),
+                                          "memory": [l[2:] for l in mem.splitlines() if l.startswith("- ")]})
+        for label in store.read_json("eval/index.json", {"runs": []})["runs"]:
+            out["eval"].append(store.read_json(f"eval/results/{label}.json"))
+        return out
+
+    @app.get("/api/tool/{gid}/{name}")
+    def tool_code(gid: str, name: str):
+        key = f"genomes/finders/{gid}/tools/{name}.py"
+        if not store.exists(key):
+            raise HTTPException(404)
+        return {"code": store.read_bytes(key).decode()}
+
     @app.get("/img/{round_no}/{scheme_id}.png")
     def image(round_no: int, scheme_id: str):
         p = store.path(f"rounds/{round_no}/schemes/{scheme_id}/image.png")

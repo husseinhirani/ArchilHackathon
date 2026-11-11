@@ -55,3 +55,22 @@ def test_difficulty_monotone():
     easy = difficulty(dict(technique="lsb"))
     hard = difficulty(dict(technique="dct", order="prng", cipher="aes", key_source="secret"))
     assert easy < hard
+
+
+@pytest.mark.parametrize("case", [
+    dict(technique="lsb", channels=["R", "B"], bit_plane=1, order="prng", cipher="aes", key_source="wordlist"),
+    dict(technique="dct", channels=["G"], dct_coeff="2,3", dct_delta=20, order="prng", cipher="xor", key_source="wordlist"),
+    dict(technique="alpha", alpha_mode="transparent_rgb", order="prng", cipher="xor", key_source="wordlist"),
+    dict(technique="palette", palette_colors=64, cipher="aes", key_source="wordlist"),
+])
+def test_bruteforce_recovers_wordlist_keys(case):
+    from pathlib import Path
+
+    from stegoarena.arena_schemes import bruteforce
+
+    words = (Path(bruteforce.__file__).parent / "wordlist.txt").read_text().split()
+    spec = validate_spec(case)
+    back = load_png(save_png(embed(COVER, FLAG, spec, words[-3]), spec, words[-3]))
+    found = []
+    stats = bruteforce.search(back, [None] + words, budget_s=60, on_hit=lambda f, s, k: found.append((f, k)))
+    assert stats["complete"] and (FLAG, words[-3]) in found

@@ -10,7 +10,8 @@ Fields (all required after normalisation):
     palette_colors 16..256, even                      (palette)
     alpha_mode    alpha_lsb | transparent_rgb         (alpha)
     cipher        none | xor | aes                    (payload encryption)
-    key_source    none | metadata | wordlist | secret (where the key lives)
+    key_source    none | metadata | wordlist | biglist | secret (where the key lives;
+                  biglist = word+NN from wordlist.txt x 00..99, ~16k keys; secret is banned in the arena)
     decoy         none | metadata_text | trailer      (fake flag planted elsewhere)
 """
 
@@ -24,7 +25,7 @@ ORDERS = ("sequential", "prng")
 DCT_COEFFS = ("1,2", "2,1", "2,2", "3,1", "1,3", "3,2", "2,3")
 ALPHA_MODES = ("alpha_lsb", "transparent_rgb")
 CIPHERS = ("none", "xor", "aes")
-KEY_SOURCES = ("none", "metadata", "wordlist", "secret")
+KEY_SOURCES = ("none", "metadata", "wordlist", "biglist", "secret")
 DECOYS = ("none", "metadata_text", "trailer")
 
 
@@ -60,7 +61,7 @@ def _need(cond: bool, msg: str) -> None:
         raise SpecError(msg)
 
 
-def validate_spec(spec: SchemeSpec | dict) -> SchemeSpec:
+def validate_spec(spec: SchemeSpec | dict, *, allow_secret: bool = True) -> SchemeSpec:
     if isinstance(spec, dict):
         spec = SchemeSpec(**{k: v for k, v in spec.items() if k in SchemeSpec.__dataclass_fields__})
     _need(spec.technique in TECHNIQUES, f"technique must be one of {TECHNIQUES}")
@@ -79,6 +80,8 @@ def validate_spec(spec: SchemeSpec | dict) -> SchemeSpec:
     _need(spec.cipher in CIPHERS, f"cipher must be one of {CIPHERS}")
     _need(spec.key_source in KEY_SOURCES, f"key_source must be one of {KEY_SOURCES}")
     _need(spec.decoy in DECOYS, f"decoy must be one of {DECOYS}")
+    _need(allow_secret or spec.key_source != "secret",
+          "solvability gate: key_source=secret is unrecoverable; use metadata, wordlist or biglist")
     keyed = spec.order == "prng" or spec.cipher != "none"
     _need(not (keyed and spec.key_source == "none"), "prng order or a cipher needs key_source != none")
     if not keyed:
