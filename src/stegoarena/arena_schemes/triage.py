@@ -49,6 +49,24 @@ def candidate_specs(img, *, keyed: bool):
                     yield SchemeSpec(technique="dct", channels=[ch], dct_coeff=coeff, dct_delta=delta, **base)
 
 
+def chi_by_channel(img) -> dict[str, float | None]:
+    """Pairs-of-values chi per RGB channel: ~1+ for natural images, near 0 when LSBs were overwritten
+    (embedding equalises each (2k, 2k+1) histogram pair). None when the channel has too few populated pairs."""
+    arr = np.array(img.convert("RGB"), dtype=np.int64)
+    out: dict[str, float | None] = {}
+    for i, ch in enumerate("RGB"):
+        hist = np.bincount(arr[:, :, i].reshape(-1), minlength=256)
+        even, odd = hist[0::2], hist[1::2]
+        tot = even + odd
+        mask = tot > 20
+        if mask.sum() < 8:
+            out[ch] = None
+            continue
+        exp = tot[mask] / 2
+        out[ch] = float((((even[mask] - exp) ** 2) / exp).sum() / mask.sum())
+    return out
+
+
 def lsb_signals(img) -> list[dict]:
     """Cheap statistical anomaly checks (pairs-of-values style)."""
     out = []
@@ -56,18 +74,8 @@ def lsb_signals(img) -> list[dict]:
         out.append({"anomaly": "palette image (indexed colour)", "technique": "palette"})
         return out
     arr = np.array(img.convert("RGBA"), dtype=np.int64)
-    for i, ch in enumerate("RGB"):
-        v = arr[:, :, i].reshape(-1)
-        hist = np.bincount(v, minlength=256)
-        even, odd = hist[0::2], hist[1::2]
-        tot = even + odd
-        mask = tot > 20
-        if mask.sum() < 8:
-            continue
-        # chi-square of PoV: embedded LSBs equalise histogram pairs
-        exp = tot[mask] / 2
-        chi = float((((even[mask] - exp) ** 2) / exp).sum() / mask.sum())
-        if chi < 0.6:
+    for ch, chi in chi_by_channel(img).items():
+        if chi is not None and chi < 0.6:
             out.append({"anomaly": f"LSB pairs-of-values equalised in {ch} (chi={chi:.2f})", "technique": "lsb", "params": {"channel": ch}})
     a = arr[:, :, 3]
     if img.mode == "RGBA":

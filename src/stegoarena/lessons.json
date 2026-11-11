@@ -1,0 +1,144 @@
+{
+  "easy": {
+    "title": "Three-Channel LSB",
+    "concept": [
+      "This level hides a message in the least significant bit of every colour channel — red, green and blue — of every pixel. The idea is simple: nudging a channel value by at most one is invisible to the eye, so that lowest bit can carry data instead of shading.",
+      "The hider walks the pixels in reading order, top-left to bottom-right, and replaces the lowest bit of each channel in turn with the next bit of the payload. Higher bits are left alone, so the picture looks unchanged at normal size.",
+      "Capacity is three bits per pixel, one per channel. A W by H image carries roughly 3 times W times H over 8 bytes, minus a small header, so this is the most generous budget of the three levels."
+    ],
+    "in_the_wild": [
+      "Least-significant-bit replacement is the textbook first stego technique. It shows up in tutorials, watermarking demos and beginner CTF challenges, usually as the first thing a player is expected to try.",
+      "Analysts meet it in image-forensics exercises, where dumping the low bit planes is the standard opening move, and it has been used to smuggle small configuration blobs inside icons and screenshots."
+    ],
+    "signals": [
+      {
+        "name": "Chi-square per channel",
+        "what": "The chi-square reading for each colour channel, shown above these cards.",
+        "why": "These readings barely move — green, for instance, sits at about the same value before and after hiding, dropping by about one percent at most and less for a short secret. The payload is small next to the image, so the test has little room to react. A flat chi reading here is not evidence that the image is clean.",
+        "tool": "The app's per-channel chi-square readings; Aletheia reports the same test."
+      },
+      {
+        "name": "LSB row profile",
+        "what": "The per-row profile of the lowest bit.",
+        "why": "Row levels vary a lot from cover to cover — typically 0.03 to 0.17, and rows along shape edges can already reach 0.34 — so there is no single baseline to compare against, and a practice-sized secret shifts no row by a measurable amount. The profile is a comparison tool: on the signals step the cover's profile sits beside the stego one, and with a long secret the top rows, where the payload starts, rise by about 0.1. Even then the top rows are not reliably the highest, because edge rows can start high.",
+        "tool": "The app's row-profile chart; StegSolve's frame browser shows the same plane as an image."
+      },
+      {
+        "name": "Bit-plane and diff view",
+        "what": "The lowest bit plane, and — in the hide step — the diff between the cover and the stego image.",
+        "why": "The plane carries image structure before anything is hidden, not pure noise. The payload is short and starts at the top-left, so the change in the plane is confined to a small patch at the start of the first row. The diff isolates that patch; the row profile shows the same effect only when you compare against the original and the secret is long enough to move a row average.",
+        "tool": "The app's bit-plane viewer and diff image (hide step); StegSolve for the plane, ImageMagick's compare for a diff of your own."
+      }
+    ],
+    "hints": {
+      "practice": [
+        "Start with the pixels rather than the file: the payload is carried in the colour values themselves.",
+        "Don't expect the numbers to point at it at this size — row levels swing more between covers than a short payload shifts them, and chi barely moves. The useful reading is the file inspection coming back clean: no text chunks and no trailing bytes rule out the container, so the message has to be in the pixel bits. On the hide step the diff shows the change starting at the top-left.",
+        "In the decoder, make sure every colour channel is included and read at the lowest bit plane; with the default reading order the output should be readable text."
+      ]
+    }
+  },
+  "medium": {
+    "title": "Two-Channel XOR LSB",
+    "concept": [
+      "Medium spreads the payload across two colour channels — red and green — and leaves blue untouched. Two bits per pixel is a smaller budget than easy's three, but a light cipher on the payload makes the output less obvious.",
+      "The bits are placed in reading order, top-left to bottom-right, one bit per red and one per green for each pixel. Before embedding, the payload is XORed with a key, so the raw pixel bits do not reveal the plaintext by eye.",
+      "The key is not in the pixels. It sits in a PNG text chunk next to the image data, written there by the hider. Capacity is two bits per pixel, roughly 2 times W times H over 8 bytes, minus whatever the header takes."
+    ],
+    "in_the_wild": [
+      "Metadata is the first place a real analyst looks. EXIF, XMP and PNG text chunks routinely carry comments, software names and sometimes credentials, which is why exiftool and pngcheck exist as standard triage tools.",
+      "CTF challenges use 'the key is in the metadata' as a routine second step, and a simple XOR is the classic obfuscation that goes with it; the same pattern appears in watermarking and fingerprinting."
+    ],
+    "signals": [
+      {
+        "name": "PNG chunks and text chunks",
+        "what": "The chunk list, any text chunk contents, and the bytes after the end-of-file marker, as shown in the file-inspection readings.",
+        "why": "This level's XOR key is stored in a text chunk, so the chunk list is not background noise — it is where the parameter you need actually lives. Trailing bytes would point at a different trick.",
+        "tool": "The app's PNG inspection panel; exiftool or pngcheck -v show the same chunks."
+      },
+      {
+        "name": "Chi-square per channel",
+        "what": "The per-channel chi-square readings.",
+        "why": "Blue is untouched and reads exactly as it did before hiding; red and green drop by about one percent at most, and less for a short secret. The split between them is real but too small for the statistic to point at the image. The chunk list is what actually gives this level away.",
+        "tool": "The app's readings; Aletheia."
+      },
+      {
+        "name": "Bit-plane view",
+        "what": "The lowest bit plane of each channel.",
+        "why": "The plane shows image structure before hiding, not pure noise. The payload is short, so the change in the plane itself is small and the modified channels do not visibly separate from blue there — red and green stand out in the row profile, and only on the signals step against the original with a long enough secret.",
+        "tool": "The app's bit-plane viewer; StegSolve."
+      },
+      {
+        "name": "LSB row profile",
+        "what": "The per-row profile of one low bit.",
+        "why": "Row levels vary by cover — typically 0.03 to 0.17, with shape edges reaching 0.34 — and a practice-sized secret moves none of them. On the signals step, with the cover's profile beside the stego one and a long secret, red and green rise by about 0.1 in the top rows where the payload starts while blue stays at baseline. That is the channel split chi can barely see, and it only shows up under those two conditions.",
+        "tool": "The app's row-profile chart."
+      },
+      {
+        "name": "Bytes after end-of-file",
+        "what": "Any data past the end-of-file marker.",
+        "why": "A clean end-of-file reading rules out appended data and sends you back to the chunks and the pixels, which is where this level's payload and key actually are.",
+        "tool": "The app's inspection panel; binwalk or a hex editor for confirmation."
+      }
+    ],
+    "hints": {
+      "practice": [
+        "The payload is in the pixels, but the parameter that makes it readable is somewhere else in the file. Inspect the container before you attack the bits.",
+        "Look at the chunk list, especially the text chunks. One of them holds the key material for the payload cipher.",
+        "Enter the key you extracted, select the cipher the hider used for the payload, and set the decoder to the two colour channels that were modified."
+      ]
+    }
+  },
+  "hard": {
+    "title": "Wordlist-Keyed Scattered LSB",
+    "concept": [
+      "Hard keeps the payload in a single colour channel — green — in the lowest bit plane, and scatters the positions with a pseudorandom sequence instead of reading order. The change is harder to notice in a bit-plane view and impossible to recover with a straight scan.",
+      "The payload is encrypted with AES, and the key is a word from a wordlist. Nothing is stored in the image header: the file looks ordinary, and the key has to be found or guessed from a dictionary.",
+      "Capacity is one bit per pixel, since only green carries data. The message is short; the protection comes from the cipher and the scatter, not from the size of the carrier."
+    ],
+    "in_the_wild": [
+      "Scattered and encrypted embedding is used when the carrier may be re-compressed or resized, since random placement and a block cipher make partial recovery useless. The same idea appears in watermarking and fingerprinting schemes.",
+      "A key drawn from a wordlist is a CTF staple: the challenge is recognising the construction and then guessing the passphrase, not extracting it from the file.",
+      "Analysts counter it with bit-plane browsing, asking whether apparent grain is actually structured, and dictionary attacks against whichever cipher they identify."
+    ],
+    "signals": [
+      {
+        "name": "Lowest bit plane view",
+        "what": "Each bit plane in turn, with attention on the bottom one.",
+        "why": "All three channels show image structure before hiding, and embedding does not visibly change any of them — a short payload scattered by a PRNG over a quarter of a million pixels is too few points to see. The view confirms the picture is a plausible carrier; it will not tell you which channel to read.",
+        "tool": "The app's bit-plane viewer; StegSolve's frame browser."
+      },
+      {
+        "name": "Diff image",
+        "what": "Which pixels changed between the original and the stego image (hide step).",
+        "why": "The PRNG order spreads the changed pixels over the whole green channel as scattered salt-and-pepper points, with no scan-order prefix at the top. The count scales with the secret: roughly a hundred changed pixels for a short one, a few hundred for a long one. This is the one reading that shows the scatter directly.",
+        "tool": "The app's diff view (hide step); ImageMagick's compare for a diff of your own."
+      },
+      {
+        "name": "LSB row profile",
+        "what": "The per-row profile of the lowest bit.",
+        "why": "Row levels swing by cover — typically 0.03 to 0.17, with shape edges reaching 0.34 — and here there is no spike to look for at any secret length: green does not separate from the untouched channels, because the PRNG scatter leaves no boundary in scan order and the payload is too small to shift a row average.",
+        "tool": "The app's row-profile chart."
+      },
+      {
+        "name": "Chi-square per channel",
+        "what": "The per-channel chi-square readings.",
+        "why": "Green's readings barely shift and do not flatten relative to red and blue, which are untouched. At this payload size the statistic has nothing to detect, so a clean chi reading on any channel does not clear the image.",
+        "tool": "The app's readings; Aletheia."
+      },
+      {
+        "name": "File structure",
+        "what": "The chunk list, text chunks and bytes after the end-of-file marker.",
+        "why": "There is no metadata key at this level. Clean chunks and a clean end-of-file are the expected reading, and they tell you the payload is entirely in the pixels.",
+        "tool": "The app's inspection panel; pngcheck or binwalk."
+      }
+    ],
+    "hints": {
+      "practice": [
+        "The payload is in the pixels only — there is no key in the metadata. The positions are not in reading order, and the payload is encrypted.",
+        "Nothing in the file or the readings points at it: the chunks and the bytes after the end-of-file are clean, the row profiles show no spike on any channel, and chi barely shifts. No side channel and no measurement to lean on — the payload has to come out of the pixel bits themselves.",
+        "The key is a wordlist word, not a file artefact. Try the decoder's PRNG ordering and its block-cipher option, with the key taken from a dictionary."
+      ]
+    }
+  }
+}

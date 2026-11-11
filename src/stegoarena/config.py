@@ -30,6 +30,7 @@ class Config:
     anthropic_api_key: str | None = field(default_factory=lambda: _env("ANTHROPIC_API_KEY"))
     finder_model: str = field(default_factory=lambda: _env("FINDER_MODEL", "claude-sonnet-5-5"))
     hider_model: str = field(default_factory=lambda: _env("HIDER_MODEL", "claude-opus-5-5"))
+    tutor_model: str = field(default_factory=lambda: _env("TUTOR_MODEL", "claude-sonnet-5-5"))
     finder_effort: str = field(default_factory=lambda: _env("FINDER_EFFORT", "medium"))
     finder_budget_s: float = field(default_factory=lambda: float(_env("FINDER_BUDGET_S", "90")))
     finder_max_turns: int = field(default_factory=lambda: int(_env("FINDER_MAX_TURNS", "16")))

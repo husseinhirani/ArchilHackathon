@@ -85,28 +85,13 @@ class ChallengeTrace(Trace):
 
 
 # --------------------------------------------------------------------- build
-def build_challenge(store: ArenaStore, photo: bytes | None, message: str, level: str, hint: str = "",
-                    *, cid: str | None = None, retries: int = 3) -> str:
-    message = " ".join((message or "").split())
-    if not 1 <= len(message) <= MAX_MSG or not message.isprintable():
-        raise ChallengeError(f"secret must be 1..{MAX_MSG} printable characters")
-    if level not in LEVELS:
-        raise ChallengeError(f"level must be one of {list(LEVELS)}")
-    hint = " ".join((hint or "").split())[:200]
-    cid = cid or secrets.token_hex(4)
-    spec = validate_spec(dict(LEVELS[level]))
-    if photo:
-        try:
-            cover = Image.open(io.BytesIO(photo)).convert("RGB")
-        except Exception as e:
-            raise ChallengeError(f"could not read image: {e}") from e
-        cover.thumbnail((512, 512))
-        cover_name = "upload"
-    else:
-        cover, cover_name = make_cover(random.randrange(1 << 30), 512, grain=0.0), "procedural"  # no visible grain
+def embed_secret(cover: Image.Image, message: str, spec: SchemeSpec, *, retries: int = 3):
+    """Embed `HS1:<message>` with `spec` (plus its decoy) and verify the round trip.
+
+    Returns (png_bytes, key, decoy_flag, decoy_spec, seed). Shared by Hide & Seek and Learn mode."""
     payload = MSG_PREFIX + message
     last: Exception | None = None
-    for attempt in range(retries):
+    for _ in range(retries):
         seed = secrets.randbits(31)
         key = make_key(spec, seed)
         decoy = MSG_PREFIX + random.choice(DECOYS) if spec.decoy != "none" else None
@@ -122,16 +107,43 @@ def build_challenge(store: ArenaStore, photo: bytes | None, message: str, level:
         except Exception as e:
             last = e
             continue
-        b = base(cid)
-        store.write_bytes(f"{b}/image.png", data)
-        store.write_json(f"{b}/spec.json", {"level": level, "difficulty": difficulty(spec), **spec.to_dict()})
-        store.write_json(f"{b}/truth.json", {"flag": payload, "message": message, "key": key, "decoy_flag": decoy,
-                                             "decoy_spec": decoy_spec.to_dict() if decoy_spec else None, "cover": cover_name, "seed": seed})
-        store.write_json(f"{b}/meta.json", {"cid": cid, "level": level, "hint": hint, "blurb": LEVEL_BLURB[level],
-                                            "created": time.time(), "width": cover.width, "height": cover.height})
-        store.write_json(f"{b}/race.json", {"status": "waiting"})
-        return cid
+        return data, key, decoy, decoy_spec, seed
     raise ChallengeError(f"could not embed the secret in this photo: {last}")
+
+
+def load_cover(photo: bytes | None) -> tuple[Image.Image, str]:
+    if photo:
+        try:
+            cover = Image.open(io.BytesIO(photo)).convert("RGB")
+        except Exception as e:
+            raise ChallengeError(f"could not read image: {e}") from e
+        cover.thumbnail((512, 512))
+        return cover, "upload"
+    # grain=0: sensor noise would randomise bit plane 0 and hide the payload band (see make_cover)
+    return make_cover(random.randrange(1 << 30), 512, grain=0.0), "procedural"
+
+
+def build_challenge(store: ArenaStore, photo: bytes | None, message: str, level: str, hint: str = "",
+                    *, cid: str | None = None, retries: int = 3) -> str:
+    message = " ".join((message or "").split())
+    if not 1 <= len(message) <= MAX_MSG or not message.isprintable():
+        raise ChallengeError(f"secret must be 1..{MAX_MSG} printable characters")
+    if level not in LEVELS:
+        raise ChallengeError(f"level must be one of {list(LEVELS)}")
+    hint = " ".join((hint or "").split())[:200]
+    cid = cid or secrets.token_hex(4)
+    spec = validate_spec(dict(LEVELS[level]))
+    cover, cover_name = load_cover(photo)
+    data, key, decoy, decoy_spec, seed = embed_secret(cover, message, spec, retries=retries)
+    b = base(cid)
+    store.write_bytes(f"{b}/image.png", data)
+    store.write_json(f"{b}/spec.json", {"level": level, "difficulty": difficulty(spec), **spec.to_dict()})
+    store.write_json(f"{b}/truth.json", {"flag": MSG_PREFIX + message, "message": message, "key": key, "decoy_flag": decoy,
+                                         "decoy_spec": decoy_spec.to_dict() if decoy_spec else None, "cover": cover_name, "seed": seed})
+    store.write_json(f"{b}/meta.json", {"cid": cid, "level": level, "hint": hint, "blurb": LEVEL_BLURB[level],
+                                        "created": time.time(), "width": cover.width, "height": cover.height})
+    store.write_json(f"{b}/race.json", {"status": "waiting"})
+    return cid
 
 
 # ---------------------------------------------------------------- human tools

@@ -73,7 +73,7 @@ def main(argv: list[str] | None = None) -> None:
 
         from .ui.app import create_app
 
-        print(f"\n  Arena replay : http://{a.host}:{a.port}/\n  Hide & Seek  : http://{a.host}:{a.port}/hs   (hide a secret, share the link, race the AI)\n")
+        print(f"\n  Arena replay : http://{a.host}:{a.port}/\n  Hide & Seek  : http://{a.host}:{a.port}/hs   (hide a secret, share the link, race the AI)\n  Learn        : http://{a.host}:{a.port}/learn   (guided lessons with an AI tutor)\n")
         uvicorn.run(create_app(cfg), host=a.host, port=a.port)
         return
     asyncio.run(_async_main(a, cfg))
