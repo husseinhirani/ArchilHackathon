@@ -65,6 +65,8 @@ def build_scheme(
     retries: int = 3,
     allow_secret: bool = False,
     random_cover: bool | None = None,
+    cover=None,
+    cover_name: str = "upload",
 ) -> BuiltScheme:
     """`random_cover`: None follows RANDOM_COVERS (default on). Only the cover image is randomised;
     the key and decoy stay derived from `seed`."""
@@ -75,15 +77,18 @@ def build_scheme(
     for attempt in range(retries):
         s = seed * 101 + attempt
         cover_seed = secrets.randbits(31) if random_cover else s
-        cover, cover_name = pick_cover(cover_seed, cover_size)
+        if cover is not None:  # a user-supplied photo (Live arena): same photo on every retry
+            cover_img, cname = cover.copy(), cover_name
+        else:
+            cover_img, cname = pick_cover(cover_seed, cover_size)
         flag = new_flag()
         key = make_key(spec, s)
         decoy = new_flag() if spec.decoy != "none" else None
         decoy_spec = pixel_decoy_spec(spec, random.Random(s)) if spec.decoy == "pixel" else None
         try:
             if decoy_spec:  # decoy first: the real scheme's prepare() keeps the decoy's carrier intact
-                cover = embed(cover, decoy, decoy_spec, key)
-            data = save_png(embed(cover, flag, spec, key), spec, key, decoy)
+                cover_img = embed(cover_img, decoy, decoy_spec, key)
+            data = save_png(embed(cover_img, flag, spec, key), spec, key, decoy)
             back = load_png(data)
             if extract(back, spec, key) != flag:
                 raise GenerationError("round-trip extraction mismatch")
@@ -98,6 +103,6 @@ def build_scheme(
                                                "rationale": rationale, "difficulty": difficulty(spec), **spec.to_dict()})
         store.write_json(f"{base}/truth.json", {"flag": flag, "key": key, "decoy_flag": decoy,
                                                 "decoy_spec": decoy_spec.to_dict() if decoy_spec else None,
-                                                "cover": cover_name, "cover_seed": cover_seed, "seed": s})
+                                                "cover": cname, "cover_seed": cover_seed, "seed": s})
         return BuiltScheme(round_no, scheme_id, spec, flag, key, decoy, difficulty(spec), f"{base}/image.png", parent_id, rationale)
     raise GenerationError(f"scheme {scheme_id} failed round-trip after {retries} tries: {last_err}")

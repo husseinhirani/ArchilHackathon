@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="/static/arena.css">
 <script src="/static/glossary.js"></script>
 <style>
-  .modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .modes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
   @media (max-width: 860px) { .modes { grid-template-columns: 1fr; } }
   .mode { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
   .mode b { font-size: 15px; } .mode p { margin: 0; font-size: 13px; color: var(--muted); } .mode .btn { margin-top: auto; align-self: flex-start; }
@@ -26,7 +26,7 @@
 <body>
 <nav class="topbar">
   <a class="brand" href="/"><span class="mark"><svg viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" fill="#fff"/><rect x="8" y="1" width="5" height="5" rx="1" fill="#fff" opacity=".45"/><rect x="1" y="8" width="5" height="5" rx="1" fill="#fff" opacity=".45"/><rect x="8" y="8" width="5" height="5" rx="1" fill="#fff"/></svg></span>StegoArena</a>
-  <div class="nav"><a href="/">Lab</a><a href="/hs">Hide &amp; Seek</a><a href="/learn">Learn</a><a href="/guide" class="on">How to use</a></div>
+  <div class="nav"><a href="/">Lab</a><a href="/live">Live</a><a href="/hs">Hide &amp; Seek</a><a href="/learn">Learn</a><a href="/guide" class="on">How to use</a></div>
   <div class="right"><span class="powered"><i></i>sandboxes on Archil</span></div>
 </nav>
 
@@ -36,7 +36,7 @@
 
   <div class="guide">
     <aside class="toc">
-      <a href="#sixty">StegoArena in 60 seconds</a><a href="#modes">The three modes</a><a href="#lab">Reading the Lab</a>
+      <a href="#sixty">StegoArena in 60 seconds</a><a href="#modes">The four modes</a><a href="#lab">Reading the Lab</a>
       <a href="#replay">Reading a replay</a><a href="#demo">3-minute judge demo</a><a href="#gloss">Glossary</a>
       <a href="#run">Run it yourself</a><a href="#faq">FAQ</a>
     </aside>
@@ -51,8 +51,9 @@
         <div class="callout warn"><b>The claim:</b> agents get measurably better at finding and hiding <b>without upgrading the model</b>. Every agent uses the same Claude model and effort setting; only their experience differs.</div>
       </section>
 
-      <section class="panel" id="modes"><h2>The three modes</h2>
+      <section class="panel" id="modes"><h2>The four modes</h2>
         <div class="modes">
+          <div class="mode"><b>📸 Live</b><p>Upload a photo and watch it happen: the hider agent researches and hides a secret in your photo, then finder agents race to find it in parallel Archil sandboxes. About 1–2 minutes.</p><a class="btn sm primary" href="/live">Start a live match</a></div>
           <div class="mode"><b>🔬 Lab</b><p>Watch AIs compete and evolve: results, highlights, replays of every attempt, and each agent's learned playbook.</p><a class="btn sm" href="/">Open the Lab</a></div>
           <div class="mode"><b>🫣 Hide &amp; Seek</b><p>Hide your own secret in a photo and send the link to a friend, who races the AI finder live. Or race it yourself.</p><a class="btn sm" href="/hs">Play</a></div>
           <div class="mode"><b>🎓 Learn</b><p>Short guided lessons on how steganography works, with an AI tutor. Good if the terms are new to you.</p><a class="btn sm" href="/learn">Start learning</a></div>
@@ -87,11 +88,12 @@
 
       <section class="panel" id="demo"><h2>A 3-minute demo path for judges</h2>
         <ol class="num-list">
+          <li><b>Live → upload a judge's photo → Fair fight → Start.</b> Watch the hider search Keenable, read the top finder's playbook and design a scheme. Then watch 4 finders race in parallel sandboxes. Point at the "difference ×64" image: the secret is invisible to the eye. (90s)</li>
           <li><b>Lab → The result.</b> Read the headline: same model, higher crack rate after evolving. (30s)</li>
           <li><b>Lab → Watch a highlight → "Parallel hypotheses".</b> Watch the live fork and the winning branch. (45s)</li>
           <li><b>Lab → Watch a highlight → "A web search changed its next move".</b> Show the ❓ → 🔎 → informed command chain. (30s)</li>
           <li><b>Lab → The agents' minds → click the top finder.</b> Read two playbook rules it wrote and open one tool it coded. (30s)</li>
-          <li><b>Hide &amp; Seek.</b> Hide a sentence on Medium, open the link, press Start, and race the AI live. (45s)</li>
+          <li><b>Optional, Hide &amp; Seek.</b> A judge hides a sentence and races the AI themselves. (45s)</li>
         </ol>
       </section>
 
@@ -115,7 +117,8 @@ uv run stegoarena eval --genome champion --repeats 2   # same model, evolved min
         <b>Can the hider cheat with an unbreakable key?</b><p>No. A <i>solvability gate</i> bans unrecoverable keys, so every scheme is crackable in principle. Hiders win by being subtle, not impossible.</p>
         <b>What does Archil do here?</b><p>Each attempt is a fork of one template sandbox with every stego tool installed: about 2 seconds, isolated, run many at once. Finders can also live-fork mid-attempt to try ideas in parallel. Every trace is mirrored to an Archil disk, so any crack can be replayed.</p>
         <b>What does Keenable do here?</b><p>Hiders research detection methods before each generation; finders search when they meet a signal they don't recognise. Both are shown in the replay.</p>
-        <b>Is the replay live?</b><p>It's a faithful recording of real runs, read from disk, so it works offline. Hide &amp; Seek races are live.</p>
+        <b>Is the replay live?</b><p>The Lab replays recorded runs from disk, so it works offline. Live and Hide &amp; Seek matches run for real while you watch.</p>
+        <b>Fair fight vs All out?</b><p>In a Fair fight the hider must keep the key findable within 90 seconds (metadata or wordlist), so you get a real race. All out lets it use ~16k-key biglists; usually nobody cracks it, which shows how strong the hider has become.</p>
       </section>
     </div>
   </div>

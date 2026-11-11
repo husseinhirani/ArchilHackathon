@@ -107,7 +107,11 @@ def create_app(cfg) -> FastAPI:
 
     from .hideseek_routes import mount_hideseek  # Hide & Seek: /hs, /c/{cid}, /api/c/*
 
-    mount_hideseek(app, cfg)
+    hs = mount_hideseek(app, cfg)
+
+    from .live_routes import mount_live  # Live arena: /live, /api/live/* (shares the Hide & Seek arena + sandbox template)
+
+    mount_live(app, hs.arena)
 
     from .learn_routes import mount_learn  # Learn mode: /learn, /api/learn/*
 
