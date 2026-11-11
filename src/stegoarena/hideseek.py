@@ -103,7 +103,7 @@ def build_challenge(store: ArenaStore, photo: bytes | None, message: str, level:
         cover.thumbnail((512, 512))
         cover_name = "upload"
     else:
-        cover, cover_name = make_cover(random.randrange(1 << 30), 512), "procedural"
+        cover, cover_name = make_cover(random.randrange(1 << 30), 512, grain=0.0), "procedural"  # no visible grain
     payload = MSG_PREFIX + message
     last: Exception | None = None
     for attempt in range(retries):
@@ -160,14 +160,85 @@ def inspect_png(data: bytes) -> dict:
             "trailer_bytes": len(trailer), "size": len(data)}
 
 
+HUMAN_TECHNIQUES = ("lsb", "alpha", "transparent", "palette", "dct")
+RGB_SETS = [["R", "G", "B"], ["R"], ["G"], ["B"], ["R", "G"], ["R", "B"], ["G", "B"]]
+CIPHER_LABEL = {"xor": "XOR", "aes": "AES"}
+
+
+def human_spec(spec: dict, img_mode: str, key: str | None, use_wordlist: bool) -> dict:
+    """Validate the PLAYER's decode form and map it to a scheme spec.
+
+    Rejects every combination the decoder can't meaningfully run, with player-facing text
+    (ChallengeError). The agent path never goes through here; it keeps using SchemeSpec directly.
+    UI technique names: lsb | alpha (A-channel LSB) | transparent (RGB of fully transparent
+    pixels) | palette (index LSB) | dct (one colour channel's block-DCT coefficient)."""
+    tech = spec.get("technique")
+    alpha_mode = spec.get("alpha_mode")
+    if tech == "alpha" and alpha_mode == "transparent_rgb":  # accept the raw agent-style form too
+        tech = "transparent"
+    if tech not in HUMAN_TECHNIQUES:
+        raise ChallengeError("Pick a technique from the list.")
+    chans = [str(c).upper() for c in (spec.get("channels") or [])]
+    order = spec.get("order") or "sequential"
+    cipher = spec.get("cipher") or "none"
+    if order not in ("sequential", "prng"):
+        raise ChallengeError("Order must be sequential or PRNG.")
+    if cipher not in ("none", "xor", "aes"):
+        raise ChallengeError("Cipher must be none, XOR or AES.")
+    out = {"order": order, "cipher": cipher}
+
+    if tech == "lsb":
+        if "A" in chans:
+            raise ChallengeError("LSB reads colour channels. To read the A channel, pick the Alpha technique.")
+        if sorted(chans, key="RGB".index) not in RGB_SETS:
+            raise ChallengeError("Pick one or more colour channels (R, G, B).")
+        bp = spec.get("bit_plane", 0)
+        if bp not in (0, 1, 2):
+            raise ChallengeError("Bit plane must be 0, 1 or 2.")
+        out.update(technique="lsb", channels=chans, bit_plane=bp)
+    elif tech in ("alpha", "transparent"):
+        if img_mode != "RGBA":
+            raise ChallengeError("This image has no alpha (transparency) channel, so there's nothing hidden there.")
+        if tech == "alpha" and chans not in ([], ["A"]):
+            raise ChallengeError("Alpha hiding reads the A channel only. Set Channels to A.")
+        out.update(technique="alpha", alpha_mode="alpha_lsb" if tech == "alpha" else "transparent_rgb")
+    elif tech == "palette":
+        if img_mode != "P":
+            raise ChallengeError("This image isn't palette-based (indexed colour), so palette decoding can't apply.")
+        out.update(technique="palette")
+    else:  # dct
+        if len(chans) != 1 or chans[0] not in "RGB":
+            raise ChallengeError("DCT reads a single colour channel. Pick R, G or B.")
+        coeff, delta = str(spec.get("dct_coeff") or "2,1"), spec.get("dct_delta", 16)
+        if coeff not in ("1,2", "2,1", "2,2", "3,1", "1,3", "3,2", "2,3"):
+            raise ChallengeError("Pick a DCT coefficient from the list.")
+        if not isinstance(delta, int) or not 12 <= delta <= 32:
+            raise ChallengeError("DCT step must be a whole number from 12 to 32.")
+        out.update(technique="dct", channels=chans, dct_coeff=coeff, dct_delta=delta)
+
+    needs_key = order == "prng" or cipher != "none"
+    if needs_key and not (key or use_wordlist):
+        if cipher != "none":
+            raise ChallengeError(f"{CIPHER_LABEL[cipher]} needs a key. Enter one or click Try every wordlist key.")
+        raise ChallengeError("PRNG order needs a key (the seed). Enter one or click Try every wordlist key.")
+    if use_wordlist and not needs_key:
+        raise ChallengeError("These settings don't use a key (no cipher, sequential order), so the wordlist won't change anything.")
+    out["key_source"] = "metadata" if needs_key else "none"
+    return out
+
+
 def try_decode(data: bytes, spec: dict, key: str | None, use_wordlist: bool = False) -> dict:
-    """Run the real extract() with the human's guessed parameters."""
-    try:
-        s = SchemeSpec.from_dict({**spec, "key_source": "metadata" if (key or use_wordlist) else "none"})
-    except Exception as e:
-        return {"found": False, "error": str(e)}
+    """Run the real extract() with the human's guessed parameters (player-facing errors only)."""
     img = load_png(data)
-    keys = list(WORDLIST) if use_wordlist else [key or None]
+    key = (key or "").strip() or None
+    try:
+        s = SchemeSpec.from_dict(human_spec(spec, img.mode, key, use_wordlist))
+    except ChallengeError as e:
+        return {"found": False, "error": str(e)}
+    except Exception as e:  # internal detail stays in the server log
+        log.info("try_decode rejected spec %s: %s", spec, e)
+        return {"found": False, "error": "Those settings can't be decoded. Check the technique and channels."}
+    keys = list(WORDLIST) if use_wordlist else [key]
     for k in keys:
         out = extract(img, s, k)
         if out:
@@ -185,6 +256,7 @@ class HideSeek:
         self.store: ArenaStore = arena.store
         self._lock = asyncio.Lock()
         self._tasks: dict[str, asyncio.Task] = {}
+        self._modes: dict[str, str] = {}
 
     def race(self, cid: str) -> dict:
         return self.store.read_json(f"{base(cid)}/race.json", {"status": "waiting"})
@@ -293,12 +365,19 @@ class HideSeek:
         if meta is None:
             raise ChallengeError("no such challenge")
         r = self.race(cid)
-        out = {"meta": meta, "race": r, "image": f"/hs/img/{cid}.png"}
+        out = {"meta": meta, "race": r, "image": f"/hs/img/{cid}.png", "image_mode": self.image_mode(cid),
+               "wordlist_size": len(WORDLIST)}
         if r.get("status") == "done":
             truth = self.store.read_json(f"{b}/truth.json")
             out["reveal"] = {"message": truth["message"], "key": truth.get("key"), "decoy": truth.get("decoy_flag"),
                              "spec": self.store.read_json(f"{b}/spec.json")}
         return out
+
+    def image_mode(self, cid: str) -> str:
+        """RGB / RGBA / P - same as `file`/exiftool would tell any seeker."""
+        if cid not in self._modes:
+            self._modes[cid] = Image.open(io.BytesIO(self.store.read_bytes(f"{base(cid)}/image.png"))).mode
+        return self._modes[cid]
 
     def stats(self) -> dict:
         per: dict[str, list[dict]] = {lv: [] for lv in LEVELS}

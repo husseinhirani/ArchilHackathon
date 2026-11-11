@@ -10,8 +10,10 @@ from PIL import Image, ImageDraw, ImageFilter
 COVERS_DIR = Path(__file__).resolve().parents[3] / "covers"
 
 
-def make_cover(seed: int, size: int = 512) -> Image.Image:
-    """Smooth gradients + soft shapes + sensor-like noise. Deterministic per seed."""
+def make_cover(seed: int, size: int = 512, grain: float = 4.0) -> Image.Image:
+    """Smooth gradients + soft shapes + sensor-like noise (std=`grain`). Deterministic per seed.
+    Arena covers keep grain=4 (realistic for steganalysis). Hide & Seek uses grain=0: the noise is
+    visible to the eye and randomises bit plane 0, which would hide the easy level's payload band."""
     rng = np.random.default_rng(seed)
     y, x = np.mgrid[0:size, 0:size] / size
     base = np.stack(
@@ -33,7 +35,7 @@ def make_cover(seed: int, size: int = 512) -> Image.Image:
         else:
             draw.rectangle([x0 - r, y0 - r // 2, x0 + r, y0 + r // 2], fill=color)
     img = img.filter(ImageFilter.GaussianBlur(radius=size / 128))
-    arr = np.array(img, dtype=np.float64) + rng.normal(0, 4.0, (size, size, 3))
+    arr = np.array(img, dtype=np.float64) + (rng.normal(0, grain, (size, size, 3)) if grain > 0 else 0)
     return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "RGB")
 
 
