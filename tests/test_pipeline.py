@@ -109,3 +109,16 @@ def test_round_runs_offline(cfg):
     assert arena.store.exists("elo.json") and arena.store.exists("lineage.json")
     att = out["schemes"][0]["attempts"][0]
     assert arena.store.exists(f"rounds/1/attempts/{att}/trace.jsonl")
+
+
+def test_random_covers_toggle(tmp_path, monkeypatch):
+    st = LocalStore(tmp_path)
+
+    def cover_seed(sid, **kw):
+        build_scheme(st, 1, sid, KNOWN_EASY, seed=1, **kw)
+        return st.read_json(f"rounds/1/schemes/{sid}/truth.json")["cover_seed"]
+
+    assert cover_seed("a") == cover_seed("b") == 101  # RANDOM_COVERS=0 (conftest): seeded
+    monkeypatch.setenv("RANDOM_COVERS", "1")
+    assert cover_seed("c") != cover_seed("d")  # env on: fresh cover per build
+    assert cover_seed("e", random_cover=False) == 101  # explicit override wins (frozen eval)
