@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StegoArena · Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/arena.css">
+<script src="/static/glossary.js"></script>
+<style>
+  .setup { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; }
+  @media (max-width: 900px) { .setup { grid-template-columns: 1fr; } }
+  .drop img { max-width: 100%; max-height: 340px; display: block; }
+  .opt { text-align: left; padding: 9px 11px; }
+  .opt b { display: block; text-transform: capitalize; } .opt span { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .hiders { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+  .stages { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+  @media (max-width: 760px) { .stages { grid-template-columns: repeat(2, 1fr); } }
+  .stage { padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--faint); font-size: 13px; }
+  .stage b { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+  .stage.now { border-color: var(--accent); color: var(--text); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .stage.now b::after { content: " ●"; color: var(--accent-hi); animation: blink 1s infinite; }
+  .stage.done { color: var(--muted); } .stage.done b::after { content: " ✓"; color: var(--good); }
+  @keyframes blink { 50% { opacity: .2; } }
+  .top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 1000px) { .top { grid-template-columns: 1fr; } }
+  .imgs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .imgs figure { margin: 0; } .imgs figcaption { font-size: 11px; color: var(--muted); margin-top: 4px; text-align: center; }
+  .imgs img, .imgs canvas { width: 100%; height: auto; display: block; border-radius: 6px; border: 1px solid var(--line); image-rendering: pixelated; background: var(--bg2); min-height: 60px; }
+  .hfeed { max-height: 360px; }
+  .design { margin-top: 10px; }
+  .lanes { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+  .lanecard { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; display: flex; flex-direction: column; min-width: 0; }
+  .lanecard.won { border-color: var(--good); box-shadow: 0 0 0 1px var(--good) inset; }
+  .lanecard .hd { display: flex; align-items: baseline; gap: 8px; }
+  .lanecard .hd b { font-size: 15px; text-transform: capitalize; }
+  .lanecard .sub { font-size: 11.5px; color: var(--muted); margin: 2px 0 6px; }
+  .lanecard .clock { font-size: 24px; }
+  .lanecard .feed { max-height: 380px; margin-top: 8px; }
+  .lanecard .status { font-size: 12px; }
+  .ev pre { max-height: 6.2em; }
+  .banner { padding: 14px 16px; border-radius: var(--r); margin-bottom: 14px; border: 1px solid var(--line); background: var(--panel); }
+  .banner.good { border-color: var(--good); background: var(--good-soft); } .banner.warn { border-color: var(--warn); background: var(--warn-soft); }
+  .banner .big { font-size: 20px; font-weight: 700; }
+  .recent a { display: flex; gap: 8px; padding: 6px 8px; border-radius: 6px; color: var(--text); font-size: 13px; }
+  .recent a:hover { background: var(--panel2); text-decoration: none; }
+</style>
+</head>
+<body>
+<nav class="topbar">
+  <a class="brand" href="/"><span class="mark"><svg viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" fill="#fff"/><rect x="8" y="1" width="5" height="5" rx="1" fill="#fff" opacity=".45"/><rect x="1" y="8" width="5" height="5" rx="1" fill="#fff" opacity=".45"/><rect x="8" y="8" width="5" height="5" rx="1" fill="#fff"/></svg></span>StegoArena</a>
+  <div class="nav"><a href="/">Lab</a><a href="/live" class="on">Live</a><a href="/hs">Hide &amp; Seek</a><a href="/learn">Learn</a><a href="/guide">How to use</a></div>
+  <div class="right"><span id="engine"></span><span class="powered"><i></i>sandboxes on Archil</span></div>
+</nav>
+<main class="wrap"><div id="view"></div></main>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const api = async (url, opts = {}) => {
+  const r = await fetch(url, { headers: { "content-type": "application/json" }, ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.detail || r.statusText);
+  return d;
+};
+const fmt = (s) => s == null ? "—" : `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, "0")}`;
+
+/* ------------------------------------------------------------------ SETUP */
+async function setupView() {
+  const o = await api("/api/live/options");
+  $("#engine").textContent = o.llm ? `hider ${o.hider_model} · finders ${o.finder_model} · ${o.provider}` : `offline mode (no API key) · ${o.provider}`;
+  let photo = null, hider = null, mode = "fair";
+  $("#view").innerHTML = `
+  <div class="hero"><div><h1>Live: watch AI agents hide and hunt, in your photo</h1>
+    <p>Upload a photo. A <b>hider agent</b> researches and designs a way to hide a secret in it. Then several <b>finder agents</b> race to find it, each in its own Archil sandbox, live. It takes about 2 minutes.</p></div></div>
+  <div class="setup">
+    <section class="panel"><h2>1 · Your photo</h2>
+      <div class="drop" id="drop"><div>Drop a photo here or click to choose<br><span class="muted small">JPG or PNG. Or skip and we'll paint one.</span></div></div>
+      <input type="file" id="file" accept="image/*" hidden>
+    </section>
+    <section class="panel"><h2>2 · Pick the hider ${tip("Hider")}</h2>
+      <div class="hiders" id="hiders">${o.hiders.length ? o.hiders.map((h, i) => `<button class="opt ${i === 0 ? "on" : ""}" data-h="${esc(h.id)}" title="${esc(h.strategy)}"><b>${esc(h.name)}</b><span>${i === 0 ? "top-rated · " : ""}${esc(h.strategy.slice(0, 70))}…</span></button>`).join("")
+        : `<div class="muted small">No evolved hiders yet; a built-in strategy will design the scheme.</div>`}</div>
+      <h2 style="margin-top:16px">3 · The finders who'll race ${tip("Finder")}</h2>
+      <div class="row">${o.lineup.map((l) => `<span class="badge muted" style="text-transform:capitalize">${esc(l)}</span>`).join("")}</div>
+      <div class="muted small" style="margin-top:6px">Same model for every AI finder (${esc(o.finder_model)}). They differ only in what they've learned. ${o.budget_s}s each.</div>
+      <h2 style="margin-top:16px">4 · How hard should the hider try?</h2>
+      <div class="hiders"><button class="opt on" data-m="fair"><b>Fair fight</b><span>Clever but crackable in 90s, so you get a real race.</span></button>
+        <button class="opt" data-m="allout"><b>All out</b><span>As hard as the rules allow. Can the finders survive it?</span></button></div>
+      <div class="row" style="margin-top:16px"><button class="primary" id="go" style="font-size:16px;padding:10px 22px">Start the match →</button><span class="err" id="err"></span></div>
+    </section>
+  </div>
+  <section class="panel recent" style="margin-top:16px"><h2>Recent matches</h2><div id="recent" class="muted small">loading…</div></section>`;
+  const drop = $("#drop"), file = $("#file");
+  drop.onclick = () => file.click();
+  drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
+  drop.ondragleave = () => drop.classList.remove("over");
+  drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); if (e.dataTransfer.files[0]) pick(e.dataTransfer.files[0]); };
+  file.onchange = () => file.files[0] && pick(file.files[0]);
+  function pick(f) { // downscale in the browser (HEIC/large JPEGs → PNG ≤1024px); the server works at 512px
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas"), k = Math.min(1, 1024 / Math.max(img.width, img.height));
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      photo = c.toDataURL("image/png");
+      drop.innerHTML = `<img src="${photo}" alt="your photo">`;
+    };
+    img.onerror = () => { $("#err").textContent = "Couldn't open that file as an image."; };
+    img.src = URL.createObjectURL(f);
+  }
+  hider = o.hiders[0]?.id ?? null;
+  document.querySelectorAll("[data-h]").forEach((b) => b.onclick = () => {
+    document.querySelectorAll("[data-h]").forEach((x) => x.classList.remove("on")); b.classList.add("on"); hider = b.dataset.h; });
+  document.querySelectorAll("[data-m]").forEach((b) => b.onclick = () => {
+    document.querySelectorAll("[data-m]").forEach((x) => x.classList.remove("on")); b.classList.add("on"); mode = b.dataset.m; });
+  $("#go").onclick = async () => {
+    $("#err").textContent = ""; $("#go").disabled = true; $("#go").textContent = "Starting…";
+    try { const r = await api("/api/live", { method: "POST", body: { photo_b64: photo, hider, mode } }); location.hash = r.lid; }
+    catch (e) { $("#err").textContent = e.message; $("#go").disabled = false; $("#go").textContent = "Start the match →"; }
+  };
+  try {
+    const rec = await api("/api/live/recent");
+    $("#recent").innerHTML = rec.length ? rec.map((m) => `<a href="#${m.lid}"><span class="badge ${m.status === "done" ? (m.winner ? "good" : "warn") : "muted"}">${m.status === "done" ? (m.winner ? "cracked" : "survived") : esc(m.status)}</span>
+      <span>${esc(m.hider || "hider")} hid it with <b>${esc(m.technique || "…")}</b>${m.winner ? ` · first found by <b>${esc(m.winner)}</b>` : ""}</span><span class="spacer faint">${new Date((m.created || 0) * 1000).toLocaleTimeString()}</span></a>`).join("")
+      : "No matches yet. Start the first one.";
+  } catch (e) { $("#recent").textContent = ""; }
+}
+
+/* ------------------------------------------------------------------ MATCH */
+const LABEL = { fork: ["⚡", "Forked a sandbox"], upload: ["📦", "Loaded the image"], start: ["▶", "Started"], reasoning: ["💭", "Thinking"], text: ["💬", "Note"],
+  tool_call: ["⌨", "Ran a command"], tool_result: ["📄", "Output"], unfamiliar: ["❓", "Spotted something unfamiliar"], search: ["🔎", "Searched the web (Keenable)"],
+  fetch: ["📖", "Read a page"], signal: ["📍", "Reported evidence"], submit: ["🏁", "Submitted an answer"], scored: ["🏆", "Score"], save_tool: ["🧰", "Saved a tool"],
+  branch_result: ["🔀", "Branches reported back"], end: ["⏹", "Finished"], error: ["⚠", "Error"], thinking: ["💭", "Working"], design: ["🎨", "Designed a scheme"],
+  embedded: ["🖼", "Hid the secret in your photo"], opponent: ["📓", "Studied the opponent"], rejected: ["✗", "Rejected its own idea"] };
+const SKIP = new Set(["search_web", "fetch_page", "report_signal", "submit_flag", "save_tool"]);
+let M = null, since = {}, timer = null, imgsDone = false, T0 = {};
+
+function evHtml(e, compact) {
+  if (e.type === "tool_call" && SKIP.has(e.tool)) return "";
+  const lane = e.lane && e.lane !== "main" ? e.lane : "";
+  let [ic, lbl] = LABEL[e.type] || ["•", e.type];
+  if (e.type === "tool_call" && e.tool === "branch") [ic, lbl] = ["🔀", "Split into parallel hypotheses"];
+  if (e.type === "fork" && e.parent_sandbox) [ic, lbl] = ["🔀", "Live-forked its sandbox"];
+  let b = "";
+  switch (e.type) {
+    case "reasoning": case "text": case "thinking": b = `<div class="t">${esc(e.text)}</div>`; break;
+    case "tool_call": b = e.tool === "branch" ? (e.input?.hypotheses || []).map((h) => `<div>• ${esc(h.label)}</div>`).join("")
+      : (e.informed_by ? `<div class="informed">🔎 informed by: “${esc(e.informed_by.query)}”</div>` : "") + `<pre>$ ${esc(e.input?.command)}</pre>`; break;
+    case "tool_result": b = compact ? "" : `<pre>${esc(e.output)}</pre>`; if (compact) return ""; break;
+    case "search": b = `“${esc(e.query)}”${e.why ? ` <span class="muted">· ${esc(e.why)}</span>` : ""}${e.trigger ? `<div class="muted">because it spotted: ${esc(e.trigger)}</div>` : ""}<div class="muted small">${(e.titles || []).slice(0, 2).map(esc).join(" · ")}</div>`; break;
+    case "unfamiliar": b = (e.signals || []).map(esc).join(", "); break;
+    case "signal": b = `<b>${esc(e.technique)}</b>: ${esc(e.anomaly)}`; break;
+    case "submit": b = `<b class="mono">${esc(e.flag) || "(empty)"}</b>`; break;
+    case "scored": b = e.cracked ? "<b class='good'>Flag correct ✓</b>" : `Flag not recovered · partial credit ${e.score}`; break;
+    case "fork": b = `${e.fork_s}s on ${esc(e.provider)}`; break;
+    case "upload": b = `${e.upload_s}s`; break;
+    case "save_tool": b = `<b>${esc(e.name)}</b>: ${esc(e.description)}`; break;
+    case "branch_result": b = e.branches.map((x) => `<div><span class="lane">${esc(x.label)}</span> ${x.extracted?.length ? "<span class='good'>extracted it</span>" : esc(x.stop)}</div>`).join(""); break;
+    case "start": b = e.name ? `<b style="text-transform:capitalize">${esc(e.name)}</b> · ${esc(e.model)}` : `<span class="small">${e.playbook_len ?? 0} playbook rules · tools: ${(e.tools || []).map(esc).join(", ") || "none"}</span>`; break;
+    case "end": b = `<span class="small muted">${esc(e.stop_reason)} · ${e.elapsed_s}s</span>`; break;
+    case "design": b = `<div class="desc">${esc(window.describeSpec(e.spec))}</div><div class="muted small" style="margin-top:4px">Its reasoning: ${esc(e.rationale)}</div>`; break;
+    case "embedded": b = `Changed <b>${e.pixels_changed_pct}%</b> of pixels, each by at most <b>${e.max_change}</b>/255, invisible to the eye.`; break;
+    case "opponent": b = `${esc(e.text)}${(e.sample || []).length ? `<div class="muted small">e.g. “${esc(e.sample[0])}”</div>` : ""}`; break;
+    case "rejected": b = esc(e.reason); break;
+    case "error": b = esc(e.message); break;
+    default: return "";
+  }
+  return `<div class="ev ${esc(e.type)} ${lane ? "lane-" + lane.split(":")[0] : ""}"><div class="h">${lane ? `<span class="lane">${esc(lane)}</span>` : ""}<span>+${(e.t ?? 0).toFixed(1)}s</span><span class="lbl">${ic} ${lbl}</span></div>${b}</div>`;
+}
+
+function matchView(lid) {
+  M = null; since = {}; imgsDone = false; T0 = {};
+  $("#view").innerHTML = `
+    <div class="row" style="margin-bottom:10px"><a class="btn sm ghost" href="#">← New match</a><span class="badge muted" id="modeb"></span><span class="muted small spacer mono">match ${esc(lid)}</span></div>
+    <div id="banner"></div>
+    <div class="stages" id="stages">${["Hider designs", "Hides it in your photo", "Finders hunt", "Results"].map((s, i) => `<div class="stage" data-s="${i + 1}"><b>${i + 1} · ${s}</b><span class="small" id="st${i + 1}"></span></div>`).join("")}</div>
+    <div class="top">
+      <section class="panel"><h2>🎭 Hider agent <span class="spacer" id="hname"></span></h2>
+        <div class="feed hfeed" id="hfeed"><div class="muted small">Waking up the hider…</div></div></section>
+      <section class="panel"><h2>Your photo ${tip("Steganography")}</h2>
+        <div class="imgs">
+          <figure><img id="iorig" alt="original"><figcaption>original</figcaption></figure>
+          <figure><img id="istego" alt="with the secret"><figcaption>with the secret hidden</figcaption></figure>
+          <figure><canvas id="idiff"></canvas><figcaption>difference ×64 (where the bits went)</figcaption></figure>
+        </div>
+        <div class="design" id="design"></div></section>
+    </div>
+    <section class="panel"><h2>🔎 Finder agents racing <span class="spacer" id="lanemeta"></span></h2>
+      <div class="lanes" id="lanes"><div class="empty" style="grid-column:1/-1">The finders start as soon as the secret is hidden.</div></div></section>`;
+  $("#iorig").src = `/api/live/${lid}/original.png`;
+  poll(lid);
+  clearInterval(timer); timer = setInterval(tick, 100);
+}
+
+function diffCanvas(lid) {
+  const a = new Image(), b = new Image(); let n = 0;
+  const go = () => { if (++n < 2) return;
+    const W = a.naturalWidth, H = a.naturalHeight, c = $("#idiff"); c.width = W; c.height = H;
+    const x = c.getContext("2d"); x.drawImage(a, 0, 0); const A = x.getImageData(0, 0, W, H); x.drawImage(b, 0, 0); const B = x.getImageData(0, 0, W, H);
+    const D = x.createImageData(W, H);
+    for (let i = 0; i < A.data.length; i += 4) { for (let j = 0; j < 3; j++) D.data[i + j] = Math.min(255, Math.abs(A.data[i + j] - B.data[i + j]) * 64); D.data[i + 3] = 255; }
+    x.putImageData(D, 0, 0); };
+  a.onload = b.onload = go; a.src = `/api/live/${lid}/original.png`; b.src = `/api/live/${lid}/stego.png?t=${Date.now()}`;
+}
+
+async function poll(lid) {
+  if (location.hash.slice(1) !== lid) return;
+  let d;
+  try { d = await api(`/api/live/${lid}/state?since=${encodeURIComponent(JSON.stringify(since))}`); }
+  catch (e) { $("#banner").innerHTML = `<div class="banner warn">${esc(e.message)}</div>`; return; }
+  const m = d.meta; M = { ...m, skew: d.now - Date.now() / 1000 };
+  document.querySelectorAll(".stage").forEach((s) => { const k = +s.dataset.s; s.classList.toggle("now", k === m.stage && m.status !== "done"); s.classList.toggle("done", k < m.stage || m.status === "done"); });
+  $("#modeb").textContent = m.mode === "allout" ? "all out" : "fair fight";
+  if (m.hider) $("#hname").innerHTML = `<span style="text-transform:capitalize">${esc(m.hider.name)}</span>`;
+  if (d.hider.length) {
+    const f = $("#hfeed"); if (!since.hider) f.innerHTML = "";
+    f.insertAdjacentHTML("beforeend", d.hider.map((e) => evHtml(e, false)).join("")); f.scrollTop = f.scrollHeight;
+    since.hider = (since.hider || 0) + d.hider.length;
+  }
+  if (m.stage >= 3 && !imgsDone) {
+    imgsDone = true; $("#istego").src = `/api/live/${lid}/stego.png`; diffCanvas(lid);
+    $("#design").innerHTML = m.spec ? `<div class="callout"><div class="row"><b>The hider's scheme</b><span class="badge lvl-${window.levelOf(m.difficulty)[0]}">${window.levelOf(m.difficulty)[1]}</span></div>
+      <div class="desc" style="margin-top:4px">${esc(window.describeSpec(m.spec))}</div>
+      ${m.proof?.pixels_changed_pct != null ? `<div class="muted small" style="margin-top:6px">${m.proof.pixels_changed_pct}% of pixels changed, max ${m.proof.max_change}/255. You can't see it, but the finders can measure it.</div>` : ""}</div>` : "";
+  }
+  if (m.lanes?.length) {
+    if (!$("#lanes").dataset.built) {
+      $("#lanes").dataset.built = 1;
+      $("#lanes").innerHTML = m.lanes.map((l) => `<div class="lanecard" id="L-${l.aid}"><div class="hd"><b>${esc(l.label)}</b><span class="badge ${l.kind === "genome" ? "accent" : "muted"}">${l.kind === "genome" ? "evolved" : l.kind === "static" ? "bare model" : "no AI"}</span><span class="clock spacer" id="C-${l.aid}">0:00.0</span></div>
+        <div class="sub">${esc(l.sub)}</div><div class="status muted" id="S-${l.aid}">forking a sandbox…</div><div class="feed" id="F-${l.aid}"></div></div>`).join("");
+      $("#lanemeta").textContent = `${m.lanes.length} finders · same task · same 90s`;
+    }
+    for (const l of m.lanes) {
+      const evs = d.lanes[l.aid] || [];
+      if (evs.length) {
+        const f = $(`#F-${l.aid}`);
+        f.insertAdjacentHTML("beforeend", evs.map((e) => evHtml(e, true)).join("")); f.scrollTop = f.scrollHeight;
+        since[l.aid] = (since[l.aid] || 0) + evs.length;
+        const last = evs.filter((e) => ["tool_call", "search", "submit", "scored", "fork", "reasoning"].includes(e.type)).pop();
+        if (last) $(`#S-${l.aid}`).textContent = { tool_call: "running a command…", search: "searching the web…", submit: "submitted an answer", scored: "done", fork: "sandbox ready", reasoning: "thinking…" }[last.type];
+        const st = evs.find((e) => e.type === "fork"); if (st && !T0[l.aid]) T0[l.aid] = (st.ts ?? Date.now() / 1000) - (st.t ?? 0);
+      }
+    }
+  }
+  $("#st1").textContent = m.stage > 1 ? "done" : m.status === "hiding" ? "researching + designing" : "";
+  $("#st3").textContent = m.stage === 3 && m.status === "hunting" ? "in progress" : "";
+  if (m.status === "done") { showResult(m); return; }
+  if (m.status === "error") { $("#banner").innerHTML = `<div class="banner warn"><b>That match hit a problem.</b> ${esc(m.error)} <a href="#">Try again →</a></div>`; return; }
+  setTimeout(() => poll(lid), 900);
+}
+
+function tick() {
+  if (!M?.lanes) return;
+  const now = Date.now() / 1000 + (M.skew || 0);
+  for (const l of M.lanes) {
+    const res = (M.results || []).find((r) => r.aid === l.aid);
+    const el = $(`#C-${l.aid}`); if (!el) continue;
+    el.textContent = res ? fmt(res.elapsed_s) : T0[l.aid] ? fmt(Math.max(0, now - T0[l.aid])) : fmt(M.hunt_started ? Math.max(0, now - M.hunt_started) : 0);
+  }
+}
+
+function showResult(m) {
+  const won = m.results.filter((r) => r.cracked).sort((a, b) => a.elapsed_s - b.elapsed_s);
+  for (const r of m.results) {
+    $(`#L-${r.aid}`)?.classList.toggle("won", !!won.length && r.aid === won[0].aid);
+    const s = $(`#S-${r.aid}`); if (s) s.innerHTML = r.cracked ? `<span class="good">✓ cracked it in ${r.elapsed_s}s</span>` : r.decoy_submitted ? `<span class="warn">😈 fell for the decoy</span>` : `<span class="muted">✗ didn't find it (partial credit ${r.score})</span>`;
+  }
+  const rv = m.reveal || {};
+  $("#banner").innerHTML = `<div class="banner ${won.length ? "good" : "warn"}"><div class="big">${won.length ? `🏆 ${esc(won[0].label)} found it first, in ${won[0].elapsed_s}s` : "🛡 The hider wins: nobody found the secret"}</div>
+    <div class="muted" style="margin-top:4px">${won.length > 1 ? `Also cracked: ${won.slice(1).map((w) => `${esc(w.label)} (${w.elapsed_s}s)`).join(", ")}. ` : ""}${m.results.filter((r) => r.decoy_submitted).map((r) => `${esc(r.label)} took the decoy. `).join("")}
+      The secret was <b class="mono">${esc(rv.flag)}</b>${rv.key ? `, key “<b class="mono">${esc(rv.key)}</b>”` : ""}${rv.decoy ? `; the decoy was ${esc(rv.decoy)}` : ""}.</div>
+    <div class="row" style="margin-top:10px"><a class="btn primary sm" href="#">Run another →</a><a class="btn sm" href="/">See how these agents evolved (Lab)</a></div></div>`;
+}
+
+function route() { const lid = location.hash.slice(1); if (lid) matchView(lid); else { clearInterval(timer); setupView(); } }
+window.addEventListener("hashchange", route);
+route();
+</script>
+</body>
+</html>

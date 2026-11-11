@@ -23,3 +23,26 @@ window.GLOSSARY = {
   "Solvability gate": "Hiders may not use unrecoverable keys. Every scheme must be crackable in principle, so hiders win by being subtle, not impossible.",
 };
 window.tip = (term, extra = "") => `<span class="tip" tabindex="0" data-tip="${(window.GLOSSARY[term] || extra).replace(/"/g, "&quot;")}">i</span>`;
+
+// Plain-English scheme description (Lab cards + Live page).
+const _CH = { R: "red", G: "green", B: "blue" };
+const _PLANE = ["lowest", "second-lowest", "third-lowest"];
+window.describeSpec = function (sp) {
+  const ch = (sp.channels || []).map((c) => _CH[c] || c);
+  const chs = ch.length === 3 ? "red, green and blue" : ch.join(" and ");
+  let s = { lsb: `Hidden in the ${_PLANE[sp.bit_plane] || "low"} bit of the ${chs} pixels`,
+    dct: `Hidden in the frequency domain of the ${_CH[sp.channels?.[0]] || ""} channel (8×8 DCT coefficient ${sp.dct_coeff}, step ${sp.dct_delta})`,
+    palette: `Hidden in the palette indexes of a ${sp.palette_colors}-colour image`,
+    alpha: sp.alpha_mode === "transparent_rgb" ? "Hidden in the colours of invisible, fully transparent pixels" : "Hidden in the lowest bit of the transparency (alpha) channel" }[sp.technique] || sp.technique;
+  const extra = [sp.order === "prng" ? "scrambled in a key-seeded order" : "", sp.cipher && sp.cipher !== "none" ? `${sp.cipher.toUpperCase()}-encrypted` : ""].filter(Boolean);
+  if (extra.length) s += ", " + extra.join(", ");
+  s += ".";
+  const key = { metadata: "Key: sitting in the file's metadata.", wordlist: "Key: one of 157 words in the shared wordlist.",
+    biglist: "Key: one of ~16,000 word+number combos.", secret: "Key: secret." }[sp.key_source];
+  if (key) s += " " + key;
+  const decoy = { metadata_text: "A fake flag is planted in the metadata.", trailer: "A fake flag is stuck after the end of the file.",
+    pixel: "A fake message is hidden in other pixels." }[sp.decoy];
+  if (decoy) s += " " + decoy;
+  return s;
+}
+window.levelOf = (d) => d < 3.5 ? ["easy", "Easy"] : d < 6.5 ? ["medium", "Medium"] : ["hard", "Hard"];

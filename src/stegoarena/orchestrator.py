@@ -49,13 +49,13 @@ class Arena:
             log.info("template ready (%s) in %.1fs", self.provider.name, time.monotonic() - t0)
         return self._template
 
-    async def attempt(self, round_no: int, scheme: BuiltScheme, k_index: int, finder) -> dict:
+    async def attempt(self, round_no: int, scheme: BuiltScheme, k_index: int, finder, attempt_id: str | None = None) -> dict:
         """finder: "scripted" | "llm" (static Claude) | FinderGenome."""
         from .genome import FinderGenome, static_finder
 
         genome = finder if isinstance(finder, FinderGenome) else (static_finder() if finder == "llm" else None)
         tag = genome.id if genome else "scripted"
-        attempt_id = f"{scheme.scheme_id}-{tag}-k{k_index}-{uuid.uuid4().hex[:4]}"
+        attempt_id = attempt_id or f"{scheme.scheme_id}-{tag}-k{k_index}-{uuid.uuid4().hex[:4]}"
         trace = Trace(self.store, round_no, attempt_id)
         async with self.sem:
             trace.t0 = time.time()  # replay clock starts when the attempt leaves the queue

@@ -110,7 +110,9 @@ class ClaudeHider:
 
     async def propose(self, round_no: int, n: int, feedback: list[dict], research: list[dict], *,
                       strategy: str = "", memory: list[str] | None = None, opponent_playbook: list[str] | None = None,
-                      effort: str = "high") -> list[tuple[SchemeSpec, str | None, str]]:
+                      effort: str = "high", on_event=None) -> list[tuple[SchemeSpec, str | None, str]]:
+        """on_event(type, **data): optional live hook (Live arena) for reasoning summaries and proposals."""
+        emit = on_event or (lambda *a, **k: None)
         system = SYSTEM + (f"\n\nYOUR STRATEGY (your identity in this arena): {strategy}" if strategy else "")
         prompt = {
             "your_memory_of_past_schemes": (memory or [])[-15:],
@@ -132,9 +134,12 @@ class ClaudeHider:
                     model=self.cfg.hider_model, max_tokens=16000, system=system,
                     messages=[{"role": "user", "content": f"Propose exactly {n} schemes.\n\n{json.dumps(prompt, indent=1)}"}],
                     output_format=HiderProposal,
-                    thinking={"type": "adaptive"}, output_config={"effort": effort},
+                    thinking={"type": "adaptive", "display": "summarized"}, output_config={"effort": effort},
                     betas=["server-side-fallback-2026-07-01"], fallbacks="default",
                 )
+                for b in resp.content:
+                    if getattr(b, "type", "") == "thinking" and getattr(b, "thinking", ""):
+                        emit("reasoning", text=b.thinking)
                 if resp.stop_reason == "refusal" or resp.parsed_output is None:
                     raise ValueError(f"no parsed output (stop_reason={resp.stop_reason})")
                 for p in resp.parsed_output.schemes:
@@ -143,6 +148,7 @@ class ClaudeHider:
                         spec = validate_spec({k: d[k] for k in SchemeSpec.__dataclass_fields__}, allow_secret=False)
                     except SpecError as e:
                         log.warning("hider spec rejected: %s", e)
+                        emit("rejected", reason=str(e))
                         continue
                     out.append((spec, p.parent_scheme_id, p.rationale))
                 if len(out) >= n:
