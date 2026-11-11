@@ -8,19 +8,17 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/arena.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="/static/glossary.js"></script>
 <style>
-  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-top: 12px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; margin-top: 12px; }
   .scheme { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
   .scheme img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: repeating-conic-gradient(#1c1818 0 25%, #221d1d 0 50%) 0 0 / 16px 16px; }
   .scheme .body { padding: 9px 10px 10px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
-  .scheme .title { display: flex; align-items: center; gap: 6px; }
+  .scheme .title { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .scheme .title b { font-family: var(--mono); font-size: 12px; }
   .scheme .why { color: var(--muted); font-size: 12px; line-height: 1.4; }
-  .attempts { display: flex; gap: 4px; flex-wrap: wrap; margin-top: auto; }
-  .attempts button { font-family: var(--mono); font-size: 11px; padding: 2px 7px; border-radius: 4px; }
-  .attempts button.win { border-color: var(--good); color: var(--good); }
-  .attempts .lbl { font-size: 11px; color: var(--muted); align-self: center; margin-right: 2px; }
-  #replay { max-height: calc(100vh - 230px); margin-top: 10px; }
+  .attempts { display: flex; gap: 4px; flex-wrap: wrap; margin-top: auto; padding-top: 4px; }
+  #replay { max-height: calc(100vh - 290px); margin-top: 10px; }
   .research { margin-top: 10px; font-size: 12px; }
   .research .q { margin: 3px 0; } .research .q b { color: var(--text); font-weight: 500; }
   .agents { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; }
@@ -29,57 +27,83 @@
   @media (max-width: 800px) { .genome-grid { grid-template-columns: 1fr; } }
   .legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11px; color: var(--muted); margin-top: 8px; }
   .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+  .subtitle { color: var(--muted); font-size: 13px; margin: -4px 0 12px; }
 </style>
 </head>
 <body>
 <nav class="topbar">
   <a class="brand" href="/"><span class="mark"><svg viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" fill="#fff"/><rect x="8" y="1" width="5" height="5" rx="1" fill="#fff" opacity=".45"/><rect x="1" y="8" width="5" height="5" rx="1" fill="#fff" opacity=".45"/><rect x="8" y="8" width="5" height="5" rx="1" fill="#fff"/></svg></span>StegoArena</a>
-  <div class="nav"><a href="/" class="on">Lab</a><a href="/hs">Hide &amp; Seek</a><a href="/learn">Learn</a></div>
+  <div class="nav"><a href="/" class="on">Lab</a><a href="/hs">Hide &amp; Seek</a><a href="/learn">Learn</a><a href="/guide">How to use</a></div>
   <div class="right"><span id="stats"></span><span class="powered"><i></i>sandboxes on Archil</span></div>
 </nav>
 
 <main class="wrap">
+  <div class="callout warn" id="welcome" hidden style="margin-bottom:14px"><div class="row">
+    <span>👋 <b>New to StegoArena?</b> Read the 60-second guide, or just click a <b>highlight</b> below to watch an AI crack a hidden message.</span>
+    <a class="btn sm" href="/guide">How to use →</a><button class="ghost sm spacer" id="welcomeX">Dismiss</button>
+  </div></div>
+
   <div class="hero">
-    <div><h1>The Lab</h1><p>A hider designs image-stego schemes, a finder cracks them blind, and both climb an Elo ladder. Every attempt runs in a forked Archil sandbox.</p></div>
-    <a class="btn primary" href="/hs">Play Hide &amp; Seek →</a>
+    <div><h1>The Lab: AIs hiding and hunting secrets in images</h1>
+      <p>Hider AIs design ways to hide a secret inside a picture. Finder AIs hunt for it blind, each inside its own Archil sandbox. Both learn from every round, <b>without ever switching to a bigger model</b>.</p></div>
+    <div class="row"><a class="btn" href="/guide">How to use</a><a class="btn primary" href="/hs">Play Hide &amp; Seek →</a></div>
   </div>
 
-  <div class="kpis" id="kpis"></div>
+  <div class="steps" id="steps"></div>
 
   <section class="panel" style="margin-bottom:16px">
-    <h2>Agents <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">same model, different minds</span><span class="spacer" id="lockline"></span></h2>
-    <div class="empty" id="agentsEmpty" hidden>No evolved population yet. Run <code>stegoarena evolve</code> to grow finder and hider genomes, then <code>stegoarena eval</code> for the held-out curve.</div>
-    <div class="agents" id="agentsGrid">
-      <div><table id="finders"></table><table id="hiders" style="margin-top:12px"></table></div>
-      <div><canvas id="curve" height="190"></canvas><div class="muted small" id="curveNote" style="margin-top:6px"></div></div>
+    <h2>The result <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">does experience beat a bigger model?</span></h2>
+    <div class="headline">
+      <div id="headline"></div>
+      <div><canvas id="curve" height="170"></canvas><div class="muted small" id="curveNote" style="margin-top:6px"></div></div>
     </div>
-    <div id="genome" style="margin-top:12px"></div>
+  </section>
+
+  <section class="panel" style="margin-bottom:16px">
+    <h2>Watch a highlight</h2>
+    <p class="subtitle">One click opens the replay at the interesting moment.</p>
+    <div class="hl-grid" id="hl"><div class="empty" style="grid-column:1/-1">Highlights appear once rounds have been played.</div></div>
   </section>
 
   <div class="cols">
     <section class="panel">
       <h2>Rounds <span class="spacer" id="roundMeta"></span></h2>
+      <p class="subtitle">Each card is one image with a secret hidden inside. Click a finder's pill to replay its attempt.</p>
       <div class="seg" id="tabs"></div>
       <div id="research"></div>
       <div class="cards" id="cards"></div>
     </section>
-    <div class="stack">
-      <section class="panel">
-        <h2>Elo ladder</h2>
-        <canvas id="elo" height="170"></canvas>
-        <div class="legend"><span><i style="background:var(--good)"></i>scheme cracked</span><span><i style="background:var(--accent)"></i>scheme survived</span></div>
-        <table id="ladder" style="margin-top:10px"></table>
-      </section>
-      <section class="panel sticky">
-        <h2>Replay <span class="spacer" id="replayTitle">pick an attempt on a scheme card</span></h2>
-        <div class="row">
-          <div class="seg"><button id="bStep">Step</button><button id="bPlay">Play</button><button id="bAll">Show all</button></div>
-          <span class="muted small" id="replayPos"></span>
-        </div>
-        <div class="feed" id="replay"><div class="empty">Attempts appear here as a step-by-step trace of what the finder did inside its sandbox.</div></div>
-      </section>
-    </div>
+    <section class="panel sticky">
+      <h2>Replay <span class="spacer" id="replayTitle"></span></h2>
+      <div class="row">
+        <div class="seg"><button id="bStep">Step</button><button id="bPlay">Play</button><button id="bAll">Show all</button></div>
+        <button class="sm" id="bKey" hidden>⭐ Jump to key moment</button>
+        <span class="muted small spacer" id="replayPos"></span>
+      </div>
+      <div class="rsum" id="rsum"></div>
+      <div class="muted small" id="laneNote" hidden style="margin-top:6px">Indented, dashed events ran in a parallel branch: a live fork of the sandbox exploring a different hypothesis.</div>
+      <div class="feed" id="replay"><div class="empty">Pick a highlight above or a finder pill on a card. You'll see every command the AI ran inside its sandbox, step by step.</div></div>
+    </section>
   </div>
+
+  <section class="panel" style="margin-top:16px">
+    <h2>The agents' minds <span class="spacer" id="lockline"></span></h2>
+    <p class="subtitle">Same model, different minds. Each finder has a persona, a playbook it wrote for itself, and tools it coded. Click a finder to read them.</p>
+    <div class="empty" id="agentsEmpty" hidden>No evolved population yet. Run <code>stegoarena evolve</code> to grow finder and hider agents.</div>
+    <div class="agents" id="agentsGrid">
+      <div><table id="finders"></table></div>
+      <div><table id="hiders"></table></div>
+    </div>
+    <div id="genome" style="margin-top:12px"></div>
+  </section>
+
+  <section class="panel" style="margin-top:16px">
+    <h2>Elo ladder</h2>
+    <p class="subtitle">Who is winning the arms race. Lines are finder ratings over time; dots are each hiding scheme after its match.</p>
+    <canvas id="elo" height="120"></canvas>
+    <div class="legend"><span><i style="background:var(--good)"></i>scheme cracked</span><span><i style="background:var(--accent)"></i>scheme survived</span></div>
+    <table id="ladder" style="margin-top:10px"></table>
+  </section>
 </main>
 
 <script>
@@ -88,147 +112,268 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const C = { accent: "#ca5551", human: "#3fb8c4", good: "#4fc26d", warn: "#d9a03a", violet: "#b48ef2", muted: "#a0938f", line: "#332c2c", text: "#f3eeeb" };
 const axis = (title) => ({ title: title ? { display: true, text: title, color: C.muted } : undefined, ticks: { color: C.muted }, grid: { color: C.line } });
 const legend = { labels: { color: C.text, boxWidth: 10, boxHeight: 10 } };
-let DATA, CUR = null, chart, ev = [], pos = 0, timer = null;
+const pct = (x) => x == null ? "—" : Math.round(100 * x) + "%";
+let DATA, AG, HL = [], CUR = null, chart, curveChart, ev = [], pos = 0, timer = null, keyI = null;
 
-async function load() {
-  DATA = await (await fetch("/api/overview")).json();
-  const rs = DATA.rounds, h = DATA.elo.history;
-  $("#tabs").innerHTML = rs.map((r) => `<button data-r="${r}">Round ${r}</button>`).join("");
+// ---------------------------------------------------------------- welcome
+try { if (!localStorage.getItem("sa-welcome-done")) $("#welcome").hidden = false; } catch (e) { $("#welcome").hidden = false; }
+$("#welcomeX").onclick = () => { $("#welcome").hidden = true; try { localStorage.setItem("sa-welcome-done", "1"); } catch (e) {} };
+
+// --------------------------------------------------------------- plain-English scheme description
+const CH = { R: "red", G: "green", B: "blue" };
+const PLANE = ["lowest", "second-lowest", "third-lowest"];
+function describe(sp) {
+  const ch = (sp.channels || []).map((c) => CH[c] || c);
+  const chs = ch.length === 3 ? "red, green and blue" : ch.join(" and ");
+  let s = { lsb: `Hidden in the ${PLANE[sp.bit_plane] || "low"} bit of the ${chs} pixels`,
+    dct: `Hidden in the frequency domain of the ${CH[sp.channels?.[0]] || ""} channel (8×8 DCT coefficient ${sp.dct_coeff}, step ${sp.dct_delta})`,
+    palette: `Hidden in the palette indexes of a ${sp.palette_colors}-colour image`,
+    alpha: sp.alpha_mode === "transparent_rgb" ? "Hidden in the colours of invisible, fully transparent pixels" : "Hidden in the lowest bit of the transparency (alpha) channel" }[sp.technique] || sp.technique;
+  const extra = [sp.order === "prng" ? "scrambled in a key-seeded order" : "", sp.cipher && sp.cipher !== "none" ? `${sp.cipher.toUpperCase()}-encrypted` : ""].filter(Boolean);
+  if (extra.length) s += ", " + extra.join(", ");
+  s += ".";
+  const key = { metadata: "Key: sitting in the file's metadata.", wordlist: "Key: one of 157 words in the shared wordlist.",
+    biglist: "Key: one of ~16,000 word+number combos.", secret: "Key: secret." }[sp.key_source];
+  if (key) s += " " + key;
+  const decoy = { metadata_text: "A fake flag is planted in the metadata.", trailer: "A fake flag is stuck after the end of the file.",
+    pixel: "A fake message is hidden in other pixels." }[sp.decoy];
+  if (decoy) s += " " + decoy;
+  return s;
+}
+const level = (d) => d < 3.5 ? ["easy", "Easy"] : d < 6.5 ? ["medium", "Medium"] : ["hard", "Hard"];
+
+// ---------------------------------------------------------------- data
+async function loadAll() {
+  [DATA, AG, HL] = await Promise.all(["/api/overview", "/api/agents", "/api/highlights"].map((u) => fetch(u).then((r) => r.json())));
+  renderSteps(); renderHeadline(); renderHighlights(); renderRounds(); renderAgents(); drawElo();
+}
+
+function renderSteps() {
+  const metas = Object.values(DATA.attempt_meta || {}).flatMap((m) => Object.values(m));
+  const forks = metas.map((m) => m.fork_s).filter((x) => x != null);
+  const schemes = Object.keys(DATA.lineage.nodes).length;
+  const pop = AG.population;
+  $("#stats").textContent = DATA.rounds.length ? `${DATA.rounds.length} rounds · ${metas.length} attempts` : "";
+  const step = (n, title, body, live) => `<div class="step"><div class="n">${n}</div><div><b>${title}</b><p>${body}</p><div class="live">${live}</div></div></div>`;
+  $("#steps").innerHTML =
+    step(1, `A hider AI hides a secret ${tip("Hider")}`, "It picks a technique, scrambling, encryption, where the key lives, and maybe a decoy, then embeds a flag in an image.",
+      `${schemes} hidden images so far`) +
+    step(2, `Finder AIs hunt for it ${tip("Archil sandbox")}`, "Each attempt runs in its own Archil sandbox, forked from a template with every stego tool, with 90 seconds on the clock.",
+      `${metas.length} attempts${forks.length ? ` · forks in ~${(forks.reduce((a, b) => a + b, 0) / forks.length).toFixed(1)}s` : ""}`) +
+    step(3, `They learn and evolve ${tip("Same model")}`, "After each round, finders rewrite their playbook and keep tools they wrote; the weakest agents are replaced by mutated children of the best.",
+      pop ? `generation ${pop.generation} · model locked: ${esc((pop.model_lock || []).slice(0, 2).join(" · "))}` : "no evolution run yet");
+}
+
+function renderHeadline() {
+  const ev_ = AG.eval || [];
+  const st = [...ev_].reverse().find((r) => r.finder === "static");
+  const evolved = ev_.filter((r) => r.finder !== "static");
+  const best = evolved.length ? evolved.reduce((a, b) => (b.crack_rate > a.crack_rate || (b.crack_rate === a.crack_rate && (b.generation ?? 0) > (a.generation ?? 0)) ? b : a)) : null;
+  if (st && best) {
+    const d = Math.round(100 * (best.crack_rate - st.crack_rate));
+    $("#headline").innerHTML = `<div class="muted small">Crack rate on puzzles no agent trained on, best agent vs the bare model ${tip("Held-out eval")}</div>
+      <div class="big">${pct(st.crack_rate)} → ${pct(best.crack_rate)}<span class="delta">${d >= 0 ? "+" : ""}${d} pts</span></div>
+      <div class="muted" style="margin-top:4px">bare model → ${(best.generation ?? 0) > 0 ? `evolved <b>${esc(best.persona)}</b> (generation ${best.generation})` : `<b>${esc(best.persona)}</b> persona (before any learning)`}, with the <b>same model</b>: <span class="mono small">${esc(best.model)} · ${esc(best.effort)}</span></div>
+      <div class="muted small" style="margin-top:8px">Mean time to crack: ${st.mean_time_to_crack_s ?? "—"}s → ${best.mean_time_to_crack_s ?? "—"}s · decoys taken: ${st.decoys_taken} → ${best.decoys_taken} · playbook: ${best.playbook_len} rules, ${best.tools.length} tools</div>`;
+  } else if (st || best) {
+    const r = st || best;
+    $("#headline").innerHTML = `<div class="muted small">Crack rate on held-out puzzles ${tip("Held-out eval")}</div><div class="big">${pct(r.crack_rate)}</div>
+      <div class="muted">${esc(r.label)}. Run <code>stegoarena eval --genome ${st ? "champion" : "static"}</code> to compare.</div>`;
+  } else {
+    $("#headline").innerHTML = `<div class="empty">No held-out results yet. Run <code>stegoarena eval --genome static</code>, then <code>stegoarena evolve</code>, then <code>stegoarena eval --genome champion</code>.</div>`;
+  }
+  curveChart?.destroy();
+  $("#curve").hidden = !ev_.length;
+  if (ev_.length) {
+    curveChart = new Chart($("#curve"), { type: "bar", data: { labels: ev_.map((r) => r.finder === "static" ? "static" : `${r.persona} g${r.generation ?? "?"}`), datasets: [
+      { label: "crack rate", data: ev_.map((r) => r.crack_rate), backgroundColor: ev_.map((r) => r.finder === "static" ? C.muted : C.accent) },
+      { label: "mean score", data: ev_.map((r) => r.mean_score), backgroundColor: C.good + "99" }] },
+      options: { animation: false, scales: { y: { min: 0, max: 1, ...axis() }, x: { ticks: { color: C.muted }, grid: { display: false } } }, plugins: { legend } } });
+    $("#curveNote").textContent = "Grey = the bare model (no persona, playbook or tools). Red = evolved agents, same model.";
+  } else $("#curveNote").textContent = "";
+}
+
+function renderHighlights() {
+  if (!HL.length) return;
+  $("#hl").innerHTML = HL.map((h, i) => `<button class="hl" data-i="${i}"><span class="ic">${h.icon}</span><b>${esc(h.title)}</b><span>${esc(h.blurb)}</span><span class="go">Watch →</span></button>`).join("");
+  $("#hl").querySelectorAll(".hl").forEach((b) => b.onclick = () => {
+    const h = HL[+b.dataset.i];
+    if (DATA.rounds.includes(h.round)) showRound(h.round);
+    openAttempt(h.round, h.attempt_id, h.event_i);
+    $("#replay").closest("section").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+// ---------------------------------------------------------------- rounds
+function renderRounds() {
+  const rs = DATA.rounds;
+  $("#tabs").innerHTML = rs.map((r) => `<button data-r="${r}">${DATA.summaries[r]?.learned ? "Gen" : "Round"} ${r}</button>`).join("");
   $("#tabs").querySelectorAll("button").forEach((b) => (b.onclick = () => showRound(+b.dataset.r)));
-  $("#stats").textContent = rs.length ? `${rs.length} rounds · ${h.length} matches` : "";
-  const schemes = Object.keys(DATA.lineage.nodes).length, cracked = h.filter((e) => e.score >= .45).length;
-  $("#kpis").innerHTML = [["Rounds", rs.length, "played so far"], ["Matches", h.length, "finder vs scheme"], ["Schemes", schemes, "designed by the hider"],
-    ["Crack rate", h.length ? Math.round(100 * cracked / h.length) + "%" : "—", "flag recovered"]]
-    .map(([l, v, s]) => `<div class="stat"><div class="lv">${l}</div><div class="big">${v}</div><div class="sub">${s}</div></div>`).join("");
-  drawElo();
   if (rs.length) showRound(CUR ?? rs[rs.length - 1]);
-  else $("#cards").innerHTML = `<div class="empty" style="grid-column:1/-1">No rounds yet. Run <code>stegoarena run</code> and this page fills in live.</div>`;
+  else $("#cards").innerHTML = `<div class="empty" style="grid-column:1/-1">No rounds yet. Run <code>stegoarena run</code> or <code>stegoarena evolve</code>; this page fills in live.</div>`;
+}
+
+function pill(meta, aid) {
+  const m = meta[aid] || {};
+  const who = m.persona || "finder";
+  const res = m.cracked ? "✓" : "✗";
+  const note = m.decoy_submitted ? " took decoy" : m.score != null && !m.cracked && m.score > 0 ? ` ${m.score.toFixed(2)}` : m.cracked && m.elapsed_s ? ` ${Math.round(m.elapsed_s)}s` : "";
+  const extras = (m.branched ? " 🔀" : "") + (m.searches ? " 🔎" : "");
+  return `<button class="pill ${m.cracked ? "ok" : "no"}" data-a="${esc(aid)}" title="replay this attempt">${esc(who)} ${res}${esc(note)}${extras}</button>`;
 }
 
 function showRound(r) {
   CUR = r;
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", +b.dataset.r === r));
-  const s = DATA.summaries[r];
-  $("#roundMeta").textContent = `${s.provider} · K=${s.k} · ${s.finders.join(",")} vs ${s.hider} · ${s.elapsed_s}s`;
+  const s = DATA.summaries[r], meta = DATA.attempt_meta?.[r] || {};
+  $("#roundMeta").textContent = `${s.schemes.length} images · ${s.schemes.filter((c) => c.cracked).length} cracked · ${s.provider} · ${Math.round(s.elapsed_s)}s`;
   const res = DATA.research[r];
-  $("#research").innerHTML = res ? `<div class="callout warn research"><b>Hider research before designing</b> <span class="muted">(${esc(res[0]?.provider)})</span>${res.map((q) =>
+  $("#research").innerHTML = res ? `<div class="callout warn research"><b>🔎 Before designing, the hiders researched on Keenable</b> ${tip("Keenable")}${res.map((q) =>
     `<div class="q"><b>${esc(q.query)}</b>${q.why ? ` <span class="muted">· ${esc(q.why)}</span>` : ""}<div class="muted">→ ${q.results.map((x) => esc(x.title)).slice(0, 2).join(" · ")}</div></div>`).join("")}</div>` : "";
   $("#cards").innerHTML = s.schemes.map((c) => {
-    const sp = c.spec;
-    const chips = [sp.technique, sp.technique === "lsb" ? `ch=${sp.channels.join("")} bp=${sp.bit_plane}` : "",
-      sp.technique === "dct" ? `${sp.channels[0]} (${sp.dct_coeff}) δ=${sp.dct_delta}` : "", sp.technique === "palette" ? `${sp.palette_colors} colors` : "",
-      sp.technique === "alpha" ? sp.alpha_mode : "", sp.order !== "sequential" ? "prng" : "", sp.cipher !== "none" ? sp.cipher : "",
-      sp.key_source !== "none" ? `key:${sp.key_source}` : "", sp.decoy !== "none" ? `decoy:${sp.decoy}` : ""].filter(Boolean);
-    return `<div class="scheme"><img src="/img/${r}/${c.scheme_id}.png" loading="lazy" alt="">
+    const sp = c.spec, [lv, lvName] = level(c.difficulty);
+    const chips = [`technique=${sp.technique}`, sp.technique === "lsb" ? `channels=${sp.channels.join("")} bit=${sp.bit_plane}` : "",
+      sp.technique === "dct" ? `${sp.channels[0]} coeff=${sp.dct_coeff} step=${sp.dct_delta}` : "", sp.technique === "alpha" ? sp.alpha_mode : "",
+      `order=${sp.order}`, `cipher=${sp.cipher}`, `key=${sp.key_source}`, `decoy=${sp.decoy}`, `difficulty=${c.difficulty}`].filter(Boolean);
+    return `<div class="scheme"><img src="/img/${r}/${c.scheme_id}.png" loading="lazy" alt="image with a hidden secret">
       <div class="body">
-        <div class="title"><b>${esc(c.scheme_id)}</b><span class="badge ${c.cracked ? "good" : "warn"}">${c.cracked ? "cracked" : "survived"}</span>
-          <span class="mono muted small spacer">d${c.difficulty} · ${c.best_score.toFixed(2)}</span></div>
-        <div>${chips.map((x) => `<span class="chip">${esc(x)}</span>`).join("")}</div>
-        <div class="why">${c.parent_id ? `<span class="faint">↳ from ${esc(c.parent_id)}.</span> ` : ""}${esc(c.rationale)}</div>
-        <div class="attempts"><span class="lbl">attempts</span>${c.attempts.map((a) => `<button class="${a === c.best_attempt ? "win" : ""}" data-a="${a}" title="${esc(a)}">${esc(a.split("-").slice(1, 2))}</button>`).join("")}</div>
+        <div class="title"><span class="badge ${c.cracked ? "good" : "warn"}">${c.cracked ? "✓ cracked" : "🛡 survived"}</span><span class="badge lvl-${lv}">${lvName}</span>
+          <b class="spacer faint">${esc(c.scheme_id)}</b></div>
+        <div class="desc">${esc(describe(sp))}</div>
+        ${c.rationale ? `<div class="why">Hider's idea: ${esc(c.rationale)}</div>` : ""}
+        <details><summary>exact settings</summary>${chips.map((x) => `<span class="chip">${esc(x)}</span>`).join("")}</details>
+        <div class="attempts">${c.attempts.map((a) => pill(meta, a)).join("")}</div>
       </div></div>`;
   }).join("");
-  $("#cards").querySelectorAll(".attempts button").forEach((b) => (b.onclick = () => openAttempt(r, b.dataset.a, b)));
+  $("#cards").querySelectorAll(".pill").forEach((b) => (b.onclick = () => openAttempt(r, b.dataset.a, null, b)));
 }
 
-function drawElo() {
-  const h = DATA.elo.history, finders = [...new Set(h.map((e) => e.finder))];
-  const colors = [C.accent, C.human, C.warn, C.violet];
-  const ds = finders.map((f, i) => ({ label: f, borderColor: colors[i % 4], backgroundColor: colors[i % 4], tension: .25, pointRadius: 2,
-    data: h.map((e, j) => ({ x: j + 1, y: e.finder === f ? e.finder_rating : null })).filter((p) => p.y !== null) }));
-  ds.push({ label: "schemes (after match)", type: "scatter", borderColor: C.muted, pointRadius: 3,
-    backgroundColor: h.map((e) => e.score >= .45 ? C.good + "aa" : C.accent + "aa"), data: h.map((e, j) => ({ x: j + 1, y: e.scheme_rating })) });
-  chart?.destroy();
-  chart = new Chart($("#elo"), { type: "line", data: { datasets: ds },
-    options: { parsing: true, animation: false, scales: { x: { type: "linear", ...axis("match") }, y: axis() }, plugins: { legend } } });
-  const R = Object.entries(DATA.elo.ratings).sort((a, b) => b[1] - a[1]).slice(0, 12);
-  $("#ladder").innerHTML = R.length ? "<tr><th>#</th><th>player</th><th class='num'>Elo</th></tr>" +
-    R.map(([p, v], i) => `<tr><td class="num">${i + 1}</td><td><span class="badge ${p.startsWith("finder:") ? "accent" : "muted"}">${p.startsWith("finder:") ? "finder" : "scheme"}</span> <span class="mono small">${esc(p.split(":")[1])}</span></td><td class="num">${v.toFixed(0)}</td></tr>`).join("") : "";
-}
+// ---------------------------------------------------------------- replay
+const LABEL = { fork: ["⚡", "Forked a sandbox"], upload: ["📦", "Loaded the image and its toolkit"], start: ["▶", "Started"], reasoning: ["💭", "Thinking"],
+  text: ["💬", "Note"], tool_call: ["⌨", "Ran a command"], tool_result: ["📄", "Output"], unfamiliar: ["❓", "Spotted something unfamiliar"],
+  search: ["🔎", "Searched the web (Keenable)"], fetch: ["📖", "Read a web page (Keenable)"], signal: ["📍", "Reported evidence"],
+  submit: ["🏁", "Submitted an answer"], scored: ["🏆", "Score"], save_tool: ["🧰", "Saved a reusable tool"], branch_result: ["🔀", "Branches reported back"],
+  end: ["⏹", "Finished"], error: ["⚠", "Error"] };
+const SKIP_CALLS = new Set(["search_web", "fetch_page", "report_signal", "submit_flag", "save_tool"]); // they have their own events
 
-async function openAttempt(r, a, btn) {
+async function openAttempt(r, a, keyEvent = null, btn = null) {
   const d = await (await fetch(`/api/attempt/${r}/${a}`)).json();
-  ev = d.trace; pos = 0; stop(); $("#replay").innerHTML = "";
-  document.querySelectorAll(".attempts button.on").forEach((b) => b.classList.remove("on")); btn?.classList.add("on");
+  ev = d.trace; pos = 0; stop(); $("#replay").innerHTML = ""; keyI = keyEvent;
+  document.querySelectorAll(".pill.on").forEach((b) => b.classList.remove("on"));
+  (btn || document.querySelector(`.pill[data-a="${CSS.escape(a)}"]`))?.classList.add("on");
   const res = d.result || {};
-  $("#replayTitle").innerHTML = `${esc(a)} · ${esc(res.finder ?? "")} · <span class="${res.cracked ? "good" : "warn"}">${res.cracked ? "cracked" : "not cracked"}</span> · ${res.score ?? "?"}`;
-  step();
+  const n = (t, f = () => true) => ev.filter((e) => e.type === t && f(e)).length;
+  $("#replayTitle").innerHTML = `<span class="${res.cracked ? "good" : "warn"}">${res.cracked ? "✓ cracked" : "✗ not cracked"}</span> · score ${res.score ?? "?"}`;
+  $("#rsum").innerHTML = [`🤖 ${esc(res.persona || res.finder || "finder")}`, `⏱ ${res.elapsed_s ?? "?"}s of 90s`,
+    `⌨ ${n("tool_call", (e) => e.tool === "run_shell")} commands`, `🔎 ${n("search")} searches`, `🔀 ${n("branch_result")} branches`, `🧰 ${n("save_tool")} tools saved`,
+    res.decoy_submitted ? "😈 took a decoy" : ""].filter(Boolean).map((x) => `<span class="badge muted">${x}</span>`).join("");
+  $("#laneNote").hidden = !ev.some((e) => e.lane && e.lane !== "main");
+  $("#bKey").hidden = keyI == null;
+  if (keyI != null) jumpKey(); else play();
 }
 
-function render(e) {
+function visible(e) { return !(e.type === "tool_call" && SKIP_CALLS.has(e.tool)); }
+
+function render(e, i) {
+  if (!visible(e)) return;
   const lane = e.lane && e.lane !== "main" ? e.lane : "";
-  const t = `<div class="h">${lane ? `<span class="lane">${esc(lane)}</span>` : ""}<span>+${e.t.toFixed(1)}s</span><span>${esc(e.type)}${e.tool ? " · " + esc(e.tool) : ""}</span></div>`;
+  let [ic, lbl] = LABEL[e.type] || ["•", e.type];
+  if (e.type === "tool_call" && e.tool === "branch") [ic, lbl] = ["🔀", "Split into parallel hypotheses"];
+  if (e.type === "fork" && e.parent_sandbox) [ic, lbl] = ["🔀", "Live-forked its running sandbox"];
+  const t = `<div class="h">${lane ? `<span class="lane">${esc(lane)}</span>` : ""}<span>+${(e.t ?? 0).toFixed(1)}s</span><span class="lbl">${ic} ${lbl}</span><span class="raw">${esc(e.type)}</span></div>`;
   let b = "";
+  const clip = (txt) => { const long = String(txt ?? "").split("\n").length > 6; return `<pre class="${long ? "clip" : ""}">${esc(txt)}</pre>${long ? `<button class="more">show more</button>` : ""}`; };
   switch (e.type) {
     case "reasoning": case "text": b = `<div class="t">${esc(e.text)}</div>`; break;
-    case "tool_call": b = (e.informed_by ? `<div class="informed">informed by Keenable: “${esc(e.informed_by.query)}”${e.informed_by.top ? ` → <i>${esc(e.informed_by.top)}</i>` : ""}${e.informed_by.trigger ? ` <span class="muted">(after unfamiliar: ${esc(e.informed_by.trigger)})</span>` : ""}</div>` : "") +
-      `<pre>${e.tool === "run_shell" ? "$ " + esc(e.input.command) : esc(JSON.stringify(e.input))}</pre>`; break;
-    case "unfamiliar": b = `Unfamiliar signal${e.signals.length > 1 ? "s" : ""} (not in this agent's playbook): ${e.signals.map((x) => `<b>${esc(x)}</b>`).join(", ")}`; break;
-    case "tool_result": b = `<pre>${esc(e.output)}</pre>`; break;
-    case "search": b = `<b>${esc(e.provider)}</b> search: “${esc(e.query)}”${e.trigger ? `<div class="muted">because of: ${esc(e.trigger)}</div>` : ""}<pre>${e.titles.map(esc).join("\n")}</pre>`; break;
-    case "fetch": b = `<b>${esc(e.provider)}</b> fetch ${esc(e.url)}<div class="muted">${esc(e.title)}</div>`; break;
-    case "signal": b = `<b>${esc(e.technique)}</b>: ${esc(e.anomaly)} <span class="mono muted small">${esc(JSON.stringify(e.params))}</span>`; break;
-    case "submit": b = `submitted <b>${esc(e.flag)}</b> ${e.where ? `<span class="muted">(${esc(e.where)})</span>` : ""}`; break;
-    case "scored": b = `<b>score ${e.score}</b> · ${e.cracked ? "<span class='good'>flag correct</span>" : "flag not recovered"} <span class="mono muted small">${esc(JSON.stringify(e.components))}</span>`; break;
-    case "fork": b = e.parent_sandbox ? `<b>live fork</b> of the running sandbox (memory + files) → ${esc(e.sandbox)} in ${e.fork_s}s` : `forked <b>${esc(e.sandbox)}</b> from the template on ${esc(e.provider)} in ${e.fork_s}s`; break;
-    case "upload": b = `uploaded challenge + toolkit (${e.files} files) in ${e.upload_s}s`; break;
-    case "save_tool": b = `saved tool <b>${esc(e.name)}</b> (${e.lines} lines): ${esc(e.description)}`; break;
-    case "branch_result": b = e.branches.map((x) => `<div><span class="lane">${esc(x.label)}</span> ${x.extracted?.length ? "<span class='good'>extracted</span> " + esc(x.extracted[0]) : esc(x.stop)} · ${x.elapsed_s ?? ""}s</div>`).join(""); break;
-    case "start": b = `<span class="mono small">${esc(e.finder)} (${esc(e.persona ?? "")}) · ${esc(e.model)} · budget ${e.budget_s}s · playbook ${e.playbook_len ?? 0} rules · tools [${(e.tools || []).map(esc).join(", ")}]</span>`; break;
-    case "end": b = `<span class="mono small">stop=${esc(e.stop_reason)} · turns=${e.turns} · ${e.elapsed_s}s</span>`; break;
+    case "tool_call":
+      if (e.tool === "branch") { b = (e.input?.hypotheses || []).map((h, k) => `<div><span class="lane">b${k}</span> ${esc(h.label)}: <span class="muted">${esc(h.plan)}</span></div>`).join(""); break; }
+      b = (e.informed_by ? `<div class="informed">🔎 informed by Keenable: “${esc(e.informed_by.query)}”${e.informed_by.top ? ` → <i>${esc(e.informed_by.top)}</i>` : ""}${e.informed_by.trigger ? ` <span class="muted">(after spotting: ${esc(e.informed_by.trigger)})</span>` : ""}</div>` : "") +
+        `<pre>${e.tool === "run_shell" ? "$ " + esc(e.input.command) : esc(JSON.stringify(e.input))}</pre>`; break;
+    case "unfamiliar": b = `Not in this agent's playbook yet: ${e.signals.map((x) => `<b>${esc(x)}</b>`).join(", ")}`; break;
+    case "tool_result": b = clip(e.output); break;
+    case "search": b = `“${esc(e.query)}”${e.trigger ? `<div class="muted">because it spotted: ${esc(e.trigger)}</div>` : ""}${clip((e.titles || []).join("\n"))}`; break;
+    case "fetch": b = `${esc(e.title || e.url)}`; break;
+    case "signal": b = `<b>${esc(e.technique)}</b>: ${esc(e.anomaly)}`; break;
+    case "submit": b = `<b class="mono">${esc(e.flag) || "(empty)"}</b> ${e.where ? `<span class="muted">(${esc(e.where)})</span>` : ""}`; break;
+    case "scored": b = `<b>${e.cracked ? "<span class='good'>Flag correct</span>" : "Flag not recovered"}</b> · partial credit ${e.score} ${tip("Partial credit")}
+      <div class="muted small">${Object.entries(e.components || {}).map(([k, v]) => `${k} ${v}`).join(" · ")}</div>`; break;
+    case "fork": b = e.parent_sandbox ? `A copy of the live sandbox, including memory and files, in ${e.fork_s}s ${tip("Live fork")}` : `<span class="mono small">${esc(e.sandbox)}</span> from the tool template on ${esc(e.provider)} in ${e.fork_s}s`; break;
+    case "upload": b = `${e.files} file(s) in ${e.upload_s}s`; break;
+    case "save_tool": b = `<b>${esc(e.name)}</b> (${e.lines} lines): ${esc(e.description)}`; break;
+    case "branch_result": b = e.branches.map((x) => `<div><span class="lane">${esc(x.label)}</span> ${x.extracted?.length ? "<span class='good'>extracted the flag</span>" : esc(x.stop)} · ${x.elapsed_s ?? ""}s</div>`).join(""); break;
+    case "start": b = `<span class="small">${esc(e.persona || e.finder)} · ${esc(e.model)} · ${e.playbook_len ?? 0} playbook rules · tools: ${(e.tools || []).map(esc).join(", ") || "none"}</span>`; break;
+    case "end": b = `<span class="small muted">${esc(e.stop_reason)} after ${e.turns} turns, ${e.elapsed_s}s</span>`; break;
+    case "error": b = esc(e.message); break;
     default: b = `<pre>${esc(JSON.stringify(e))}</pre>`;
   }
-  const div = document.createElement("div"); div.className = `ev ${e.type} ${lane ? "lane-" + lane.split(":")[0] : ""}`; div.innerHTML = t + b;
-  $("#replay").appendChild(div); div.scrollIntoView({ block: "nearest" });
-  $("#replayPos").textContent = `${pos} / ${ev.length}`;
+  const div = document.createElement("div");
+  div.className = `ev ${e.type} ${lane ? "lane-" + lane.split(":")[0] : ""} ${i === keyI ? "key" : ""}`; div.innerHTML = t + b;
+  div.querySelectorAll(".more").forEach((m) => m.onclick = () => { const p = m.previousElementSibling; p.classList.toggle("clip"); m.textContent = p.classList.contains("clip") ? "show more" : "show less"; });
+  $("#replay").appendChild(div);
+  div.scrollIntoView({ block: "nearest" });
 }
-function step() { if (pos < ev.length) render(ev[pos++]); else stop(); }
+function step() {
+  while (pos < ev.length && !visible(ev[pos])) pos++;
+  if (pos < ev.length) { render(ev[pos], pos); pos++; } else stop();
+  $("#replayPos").textContent = ev.length ? `${Math.min(pos, ev.length)} / ${ev.length}` : "";
+}
+function play() { stop(); $("#bPlay").textContent = "Pause"; $("#bPlay").classList.add("on"); timer = setInterval(step, 800); step(); }
 function stop() { clearInterval(timer); timer = null; $("#bPlay").textContent = "Play"; $("#bPlay").classList.remove("on"); }
-$("#bStep").onclick = step;
-$("#bAll").onclick = () => { stop(); while (pos < ev.length) render(ev[pos++]); };
-$("#bPlay").onclick = () => { if (timer) return stop(); $("#bPlay").textContent = "Pause"; $("#bPlay").classList.add("on"); timer = setInterval(step, 900); };
+function jumpKey() {
+  stop(); $("#replay").innerHTML = ""; pos = 0;
+  while (pos <= keyI && pos < ev.length) step();
+  document.querySelector(".ev.key")?.scrollIntoView({ block: "center" });
+}
+$("#bStep").onclick = () => { stop(); step(); };
+$("#bAll").onclick = () => { stop(); while (pos < ev.length) step(); };
+$("#bPlay").onclick = () => timer ? stop() : play();
+$("#bKey").onclick = jumpKey;
 
-let curveChart, AG;
-async function loadAgents() {
-  AG = await (await fetch("/api/agents")).json();
+// ---------------------------------------------------------------- agents + elo
+function renderAgents() {
   const pop = AG.population;
-  $("#lockline").textContent = pop ? `gen ${pop.generation} · locked ${(pop.model_lock || []).join(" · ")} · retired ${pop.retired.length}` : "";
+  $("#lockline").textContent = pop ? `generation ${pop.generation} · ${pop.retired.length} retired` : "";
   const fr = AG.finders.sort((a, b) => (b.active - a.active) || ((b.elo ?? 1200) - (a.elo ?? 1200)));
-  const nothing = !fr.length && !AG.hiders.length && !AG.eval.length;
+  const nothing = !fr.length && !AG.hiders.length;
   $("#agentsEmpty").hidden = !nothing; $("#agentsGrid").hidden = nothing;
-  $("#finders").innerHTML = fr.length ? "<tr><th>finder genome</th><th>persona</th><th class='num'>gen</th><th class='num'>playbook</th><th class='num'>tools</th><th class='num'>Elo</th></tr>" +
-    fr.map((f) => `<tr class="click ${f.active ? "" : "off"}" data-g="${f.id}"><td><span class="mono small">${esc(f.id)}</span>${f.parent ? `<div class="faint small">↳ ${esc(f.parent)}</div>` : ""}</td><td>${esc(f.persona_name)}</td><td class="num">${f.generation}</td><td class="num">${f.playbook.length}</td><td class="num">${Object.keys(f.tools).length}</td><td class="num">${f.elo ? f.elo.toFixed(0) : "–"}</td></tr>`).join("")
-    : `<tr><td><div class="empty">No evolved finders yet. Run <code>stegoarena evolve</code> to grow a population.</div></td></tr>`;
-  $("#hiders").innerHTML = AG.hiders.length ? "<tr><th>hider genome</th><th>strategy</th><th class='num'>Elo</th></tr>" +
-    AG.hiders.map((h) => `<tr class="${h.active ? "" : "off"}"><td class="mono small">${esc(h.id)}</td><td>${esc(h.strategy_name)}</td><td class="num">${h.elo ? h.elo.toFixed(0) : "–"}</td></tr>`).join("") : "";
+  $("#finders").innerHTML = fr.length ? `<tr><th>finder ${tip("Genome")}</th><th>strategy ${tip("Persona")}</th><th class='num'>rules learned ${tip("Playbook")}</th><th class='num'>tools written ${tip("Toolkit")}</th><th class='num'>Elo ${tip("Elo")}</th></tr>` +
+    fr.map((f) => `<tr class="click ${f.active ? "" : "off"}" data-g="${f.id}"><td><b>${esc(f.persona_name)}</b>${f.active ? "" : ` <span class="badge muted">retired</span>`}<div class="faint small mono">${esc(f.id)}${f.parent ? ` · child of ${esc(f.parent)}` : ""} · born gen ${f.generation}</div></td><td class="small muted">${esc((f.persona || "").slice(0, 90))}${(f.persona || "").length > 90 ? "…" : ""}</td><td class="num">${f.playbook.length}</td><td class="num">${Object.keys(f.tools).length}</td><td class="num">${f.elo ? f.elo.toFixed(0) : "–"}</td></tr>`).join("") : "";
+  $("#hiders").innerHTML = AG.hiders.length ? `<tr><th>hider ${tip("Hider")}</th><th class='num'>Elo</th></tr>` +
+    AG.hiders.map((h) => `<tr class="${h.active ? "" : "off"}"><td><b>${esc(h.strategy_name.replace(/_/g, " "))}</b>${h.active ? "" : ` <span class="badge muted">retired</span>`}<div class="faint small">${esc((h.strategy || "").slice(0, 110))}…</div></td><td class="num">${h.elo ? h.elo.toFixed(0) : "–"}</td></tr>`).join("") : "";
   $("#finders").querySelectorAll("tr.click").forEach((r) => (r.onclick = () => showGenome(r.dataset.g)));
-  const ev = AG.eval;
-  curveChart?.destroy();
-  $("#curve").hidden = !ev.length;
-  if (ev.length) {
-    curveChart = new Chart($("#curve"), { type: "bar", data: { labels: ev.map((r) => r.label), datasets: [
-      { label: "crack rate (held-out set)", data: ev.map((r) => r.crack_rate), backgroundColor: ev.map((r) => r.finder === "static" ? C.muted : C.accent) },
-      { label: "mean score", data: ev.map((r) => r.mean_score), backgroundColor: C.good + "99" }] },
-      options: { animation: false, scales: { y: { min: 0, max: 1, ...axis() }, x: { ticks: { color: C.muted }, grid: { display: false } } }, plugins: { legend } } });
-    $("#curveNote").textContent = `Same model (${ev[0].model}, effort ${ev[0].effort}) for every bar. Only playbook, tools, persona and branching differ.`;
-  } else $("#curveNote").innerHTML = `<div class="empty">Held-out eval results appear here after <code>stegoarena eval</code>.</div>`;
 }
 async function showGenome(gid) {
   const f = AG.finders.find((x) => x.id === gid);
   const tools = Object.entries(f.tools);
-  $("#genome").innerHTML = `<div class="panel sub"><div class="row"><b class="mono">${esc(f.id)}</b><span class="muted">${esc(f.persona)}</span><button class="ghost sm spacer" onclick="document.querySelector('#genome').innerHTML=''">close</button></div>
+  $("#genome").innerHTML = `<div class="panel sub"><div class="row"><b>${esc(f.persona_name)}</b><span class="faint mono small">${esc(f.id)}</span><button class="ghost sm spacer" onclick="document.querySelector('#genome').innerHTML=''">close</button></div>
+    <div class="muted small" style="margin-top:4px">${esc(f.persona)}</div>
     <div class="genome-grid">
-      <div><h3>Playbook <span class="muted small" style="font-weight:400">written by the agent</span></h3><ol class="pb">${f.playbook.map((l) => `<li>${esc(l)}</li>`).join("") || "<li class='muted'>empty</li>"}</ol></div>
-      <div><h3>Toolkit <span class="muted small" style="font-weight:400">scripts it wrote</span></h3>${tools.map(([n, t]) => `<details><summary>${esc(n)}: ${esc(t.description)} (used ${t.uses}×, ${t.wins} cracks)</summary><pre class="mono small" data-tool="${esc(n)}" style="white-space:pre-wrap;max-height:260px;overflow:auto">loading…</pre></details>`).join("") || "<div class='muted'>none yet</div>"}
-        <h3 style="margin-top:12px">Learning log</h3>${f.learning.map((l) => `<div class="muted small" style="margin:3px 0">gen ${l.generation}: ${esc(l.insight)} · committed [${l.committed.join(", ")}] rejected [${l.rejected.join(", ")}]</div>`).join("") || "<div class='muted'>nothing yet</div>"}</div>
+      <div><h3>Playbook ${tip("Playbook")} <span class="muted small" style="font-weight:400">rules it wrote for itself</span></h3><ol class="pb">${f.playbook.map((l) => `<li>${esc(l)}</li>`).join("") || "<li class='muted'>empty (hasn't reflected yet)</li>"}</ol></div>
+      <div><h3>Toolkit ${tip("Toolkit")} <span class="muted small" style="font-weight:400">scripts it coded</span></h3>${tools.map(([n, t]) => `<details><summary>${esc(n)}: ${esc(t.description)} (used ${t.uses}×, ${t.wins} cracks)</summary><pre class="mono small" data-tool="${esc(n)}" style="white-space:pre-wrap;max-height:260px;overflow:auto">loading…</pre></details>`).join("") || "<div class='muted'>none yet</div>"}
+        <h3 style="margin-top:12px">What it learned each generation</h3>${f.learning.map((l) => `<div class="muted small" style="margin:3px 0">gen ${l.generation}: ${esc(l.insight)}${l.committed.length ? ` · kept tools: ${l.committed.join(", ")}` : ""}</div>`).join("") || "<div class='muted'>nothing yet</div>"}</div>
     </div></div>`;
   $("#genome").querySelectorAll("details").forEach((d) => d.addEventListener("toggle", async () => {
     const pre = d.querySelector("pre"); if (pre.dataset.done) return;
     pre.textContent = (await (await fetch(`/api/tool/${gid}/${pre.dataset.tool}`)).json()).code; pre.dataset.done = 1; }));
   $("#genome").scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
-loadAgents();
-load(); setInterval(() => { if (!timer) { load(); loadAgents(); } }, 15000);
+function drawElo() {
+  const h = DATA.elo.history, finders = [...new Set(h.map((e) => e.finder))];
+  const name = (f) => AG.finders.find((x) => x.id === f)?.persona_name || f;
+  const colors = [C.accent, C.human, C.warn, C.violet];
+  const ds = finders.map((f, i) => ({ label: name(f), borderColor: colors[i % 4], backgroundColor: colors[i % 4], tension: .25, pointRadius: 2,
+    data: h.map((e, j) => ({ x: j + 1, y: e.finder === f ? e.finder_rating : null })).filter((p) => p.y !== null) }));
+  ds.push({ label: "schemes", type: "scatter", borderColor: C.muted, pointRadius: 3,
+    backgroundColor: h.map((e) => e.score >= .45 ? C.good + "aa" : C.accent + "aa"), data: h.map((e, j) => ({ x: j + 1, y: e.scheme_rating })) });
+  chart?.destroy();
+  chart = new Chart($("#elo"), { type: "line", data: { datasets: ds }, options: { parsing: true, animation: false, scales: { x: { type: "linear", ...axis("match") }, y: axis("rating") }, plugins: { legend } } });
+  const R = Object.entries(DATA.elo.ratings).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  $("#ladder").innerHTML = R.length ? "<tr><th>#</th><th>player</th><th class='num'>Elo</th></tr>" +
+    R.map(([p, v], i) => { const [kind, id] = p.split(":"); return `<tr><td class="num">${i + 1}</td><td><span class="badge ${kind === "finder" ? "accent" : kind === "hider" ? "human" : "muted"}">${kind}</span> ${kind === "finder" ? esc(name(id)) : `<span class="mono small">${esc(id)}</span>`}</td><td class="num">${v.toFixed(0)}</td></tr>`; }).join("") : "";
+}
+
+loadAll();
+setInterval(() => { if (!timer) loadAll(); }, 20000);
 </script>
 </body>
 </html>
