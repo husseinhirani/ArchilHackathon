@@ -9,10 +9,9 @@ Built for the Archil hackathon.
 ---
 
 ## Contents
-- [The 60-second pitch](#the-60-second-pitch)
-- [Demo script (5 minutes)](#demo-script-5-minutes)
-- [Before the demo: checklist](#before-the-demo-checklist)
+- [Overview](#overview)
 - [Setup](#setup)
+- [How to use it](#how-to-use-it)
 - [The five pages](#the-five-pages)
 - [How it works](#how-it-works)
 - [What makes the agents dynamic](#what-makes-the-agents-dynamic-not-just-a-bigger-model)
@@ -26,51 +25,12 @@ Built for the Archil hackathon.
 
 ---
 
-## The 60-second pitch
+## Overview
 
 1. **The hider hides.** It picks a technique (pixel bits, frequency domain, palette, transparency), scrambling, encryption, where the key lives, and whether to plant a fake "decoy" flag. Then it embeds a secret into an image. The change is invisible: typically under 0.1% of pixels, by at most a few brightness levels.
 2. **The finders hunt.** Each attempt forks a fresh Archil sandbox (~2s) with `zsteg`, `binwalk`, `exiftool`, `steghide`, `stegseek` and Python. A finder has 90 seconds. It can run commands, search the web, save its own tools, and even **fork its live sandbox** to chase two hypotheses at once.
 3. **Both evolve.** After each round the answers are revealed. Finders rewrite their own playbook and keep code they wrote; hiders study what got cracked and **read the champion finder's playbook** to design around it. The weakest agents are retired and replaced by coached children of the best.
 4. **The proof.** On a held-out set of puzzles no agent trained on, we compare the bare model with evolved agents. Same model, same effort; only the mind changes.
-
----
-
-## Demo script (5 minutes)
-
-Start the site with `uv run stegoarena ui` and open **http://127.0.0.1:8000**.
-
-| # | Where | What to do | What the judges see | Time |
-|---|---|---|---|---|
-| 1 | **Live** (`/live`) | Upload a judge's photo → leave **Fair fight** → **Start the match** | The hider searches Keenable ("DCT coefficient QIM steganalysis…"), reads the top finder's playbook from the shared Archil disk, and designs a scheme. The secret goes into *their* photo, with an original / with-secret / **difference ×64** view. Then 4 finders race side by side in parallel Archil sandboxes. | ~90s |
-| 2 | **Live**, the result banner | Point out who won and who **fell for the decoy** | In our test run, both evolved finders cracked it in ~23s while the bare model submitted the decoy, **on the same model**. | 20s |
-| 3 | **Lab** (`/`) → *The result* | Read the headline number | Held-out crack rate: bare model vs best agent, same model and effort. | 30s |
-| 4 | **Lab** → *Watch a highlight* | Click **"Parallel hypotheses"** or **"A web search changed its next move"** | The replay jumps to the moment: a live fork of the sandbox and the winning branch, or ❓ unfamiliar signal → 🔎 Keenable search → the command it led to. | 45s |
-| 5 | **Lab** → *The agents' minds* | Click the top finder | The playbook it wrote for itself, and a Python tool it coded and kept. | 30s |
-| 6 | *(optional)* **Live** → **All out** | Run a second match | The hider goes as hard as the rules allow. In our test it read the finders' "narrow to bit-plane 0" rule and hid the secret in bit-plane 2; nobody cracked it. | 90s |
-| 7 | *(optional)* **Hide & Seek** (`/hs`) | A judge hides a sentence and races the AI themselves | A human vs AI race with a live trace. | 60s |
-
-**If something misbehaves live:** finished matches are listed under **Recent matches** on `/live`; open one to show the full run. The Lab replays recorded runs from disk and works offline.
-
----
-
-## Before the demo: checklist
-
-```bash
-git pull
-uv sync
-uv run pytest -q                                   # 121 tests, no keys needed
-cp .env.example .env                               # then fill in keys (see Configuration), if not done
-uv run stegoarena template --provider archil       # builds/caches the tool-loaded sandbox (~30s first time)
-uv run stegoarena smoke --provider archil          # an easy image must come back "cracked": true
-uv run stegoarena ui                               # http://127.0.0.1:8000
-```
-
-- [ ] `.env` has `ANTHROPIC_API_KEY`, `ARCHIL_API_KEY`, `ARCHIL_REGION` (ours is **aws-us-west-2**), `ARCHIL_DISK_ID`, `STEGOARENA_PROVIDER=archil`.
-- [ ] `/live` header shows `hider claude-opus-5-5 · finders claude-sonnet-5-5 · archil` (not "offline mode").
-- [ ] Do one practice **Fair fight** with a phone photo, so there's a good finished match under *Recent matches*.
-- [ ] The Lab shows data. If *The result* is empty, run the [learning-curve commands](#grow-and-measure-the-agents) beforehand; they take ~25–30 min and cost API credit.
-- [ ] Hard-refresh the browser (Cmd+Shift+R) after pulling, so the newest pages load.
-- [ ] At most **2 live matches** run at once; a third shows a friendly "give it a minute".
 
 ---
 
@@ -82,8 +42,15 @@ uv run stegoarena ui                               # http://127.0.0.1:8000
 git clone https://github.com/husseinhirani/ArchilHackathon.git
 cd ArchilHackathon
 uv sync
-cp .env.example .env      # add your keys
+cp .env.example .env      # add your keys (see Configuration)
 uv run stegoarena ui      # http://127.0.0.1:8000
+```
+
+Optional checks if you're using Archil:
+```bash
+uv run stegoarena template --provider archil   # build the tool-loaded sandbox once (~30s, then cached)
+uv run stegoarena smoke --provider archil      # an easy hidden message should come back "cracked": true
+uv run pytest -q                               # run the test suite (no keys needed)
 ```
 
 **What runs without keys:**
@@ -97,15 +64,55 @@ uv run stegoarena ui      # http://127.0.0.1:8000
 
 ---
 
+## How to use it
+
+Start the site with `uv run stegoarena ui` and open **http://127.0.0.1:8000**. Every page has a **How to use** link in the top bar.
+
+**Watch the agents live, with your own photo**
+1. Open **Live** (`/live`).
+2. Drop in a photo, or skip it to use a generated one.
+3. Pick a hider (the top-rated one is preselected) and a mode:
+   - **Fair fight:** the secret is findable within 90 seconds, so you get a real race.
+   - **All out:** the hider makes it as hard as the rules allow.
+4. Click **Start the match**. The hider researches and designs a scheme, then hides the secret in your photo; the "difference ×64" view shows where. Then several finders race to recover it, each in its own sandbox.
+5. When it finishes you'll see who found it first, who fell for a decoy, and the revealed secret. Past matches are listed under **Recent matches**.
+
+**Explore past runs**
+1. Open the **Lab** (`/`).
+   - *The result* compares the bare model with the evolved agents on puzzles they never trained on.
+   - *Watch a highlight* opens a replay at an interesting moment.
+2. On the **Rounds** cards, click a finder's pill to replay its attempt step by step (Play, Step, Show all).
+3. Under **The agents' minds**, click a finder to read the playbook it wrote for itself and the tools it coded.
+4. Hover any ⓘ for a definition.
+
+**Play against the AI**
+1. Open **Hide & Seek** (`/hs`). Type a secret, choose easy, medium or hard, and click **Hide it**.
+2. Share the link, or open it yourself, then press **Start**. You and the AI hunt at the same time, using the bit-plane viewer, the file inspector and the decoder.
+3. Submit the secret before the AI does.
+
+**Learn the basics**
+- Open **Learn** (`/learn`) for short guided lessons with an AI tutor.
+
+**Generate your own data** (needs API keys; takes a while and uses API credit)
+```bash
+uv run stegoarena eval-set --n 6
+uv run stegoarena eval --genome static --repeats 2       # the bare model
+uv run stegoarena evolve --generations 3                 # agents compete, learn and evolve
+uv run stegoarena eval --genome champion --repeats 2     # the evolved champion, same model
+```
+The Lab updates as these run.
+
+---
+
 ## The five pages
 
 | Page | URL | What it's for |
 |---|---|---|
-| **Live** | `/live` | Upload a photo and watch the hider design and embed, then finders race live. **The main demo.** |
+| **Live** | `/live` | Upload a photo and watch the hider design and embed, then finders race live. |
 | **Lab** | `/` | The research dashboard: how it works, the headline result, one-click highlights, rounds with plain-English scheme cards, step-by-step replays, each agent's playbook and tools, and the Elo ladder. Every technical term has an ⓘ tooltip. |
 | **Hide & Seek** | `/hs` | Hide your own secret (easy / medium / hard), share a link, and a friend races the AI. Player tools: bit-plane viewer with a noise meter, file inspector, decoder. |
 | **Learn** | `/learn` | Guided lessons (easy → medium → hard) on how steganography works, with an AI tutor: concept → hide → signals → practice → graduate. |
-| **How to use** | `/guide` | The in-app manual: reading the Lab and replays, glossary, a 3-minute judge path, commands, and an FAQ. |
+| **How to use** | `/guide` | The in-app manual: reading the Lab and replays, glossary, commands, and an FAQ. |
 
 ---
 
@@ -185,14 +192,14 @@ All commands: `uv run stegoarena <command> [--provider local|docker|archil]`.
 | `hide -m "secret" [--level easy\|medium\|hard] [--photo p.jpg] [--hint …]` | Create a Hide & Seek challenge link from the terminal. |
 | `hs-seed [--per-level 3] [--finder llm\|scripted]` | AI-only Hide & Seek races, to calibrate crack rate per level. |
 
-### Grow and measure the agents
+### Generating data
 ```bash
 uv run stegoarena eval-set --n 6
 uv run stegoarena eval --genome static --repeats 2       # the bare model
 uv run stegoarena evolve --generations 3                 # ~18 attempts per generation
 uv run stegoarena eval --genome champion --repeats 2     # same model, evolved mind
 ```
-This takes roughly 25–30 minutes on Archil and spends API credit (≈100 finder attempts plus hider, reflection and coach calls).
+With Archil this takes roughly 25–30 minutes and uses API credit (about 100 finder attempts plus hider, reflection and coach calls).
 
 ---
 
@@ -206,10 +213,10 @@ This takes roughly 25–30 minutes on Archil and spends API credit (≈100 finde
 | `FINDER_MODEL` / `HIDER_MODEL` | `claude-sonnet-5-5` / `claude-opus-5-5` | Locked for a whole `evolve` run. |
 | `FINDER_EFFORT`, `FINDER_BUDGET_S`, `FINDER_MAX_TURNS` | `medium`, `90`, `16` | Per-attempt limits. |
 | `ARCHIL_API_KEY`, `ARCHIL_REGION`, `ARCHIL_DISK_ID` | none, `aws-us-west-2`, none | The key only works in its own region. |
-| `STEGOARENA_PROVIDER` | `local` | `archil` for the demo. |
+| `STEGOARENA_PROVIDER` | `local` | `local`, `docker` or `archil`. |
 | `MAX_CONCURRENCY` | `4` | 8 parallel forks verified on our account. |
 | `KEENABLE_API_KEY`, `KEENABLE_ENABLED` | none, `1` | Keyless works; `0` uses the offline stub. |
-| `ARENA_ROOT` | `./arena_data` | Where the UI reads from. Point it at a copy to freeze demo data. |
+| `ARENA_ROOT` | `./arena_data` | Where data is stored and the UI reads from. |
 | `RANDOM_COVERS` | `1` | `0` makes covers reproducible from seeds. |
 
 ---
@@ -263,7 +270,7 @@ The suite runs offline with the local provider and fake Claude clients. It cover
 | `/live` says "offline mode" | `ANTHROPIC_API_KEY` is missing from `.env`, or the server was started before you added it. Restart `stegoarena ui`. |
 | A text box won't accept typing | Fixed (a keydown handler returned `false`). Pull, then hard-refresh. |
 | "Two live matches are already running" | Wait for one to finish (~1–2 min). |
-| The Lab's *The result* or highlights are empty | Run the [learning-curve commands](#grow-and-measure-the-agents). Highlights such as branching and Keenable appear once runs have produced them. |
+| The Lab's *The result* or highlights are empty | Generate data first (see [Generating data](#generating-data)). Highlights such as branching and Keenable appear once runs have produced them. |
 | Leftover sandboxes on Archil | Shouldn't happen. Check with `archil` (`client.sandboxes.list()`); only the stopped template should remain. |
 
-**Security:** API keys live only in `.env` (git-ignored). Rotate any key that has been pasted into chats or screenshots.
+**Security:** keep API keys only in `.env` (it's git-ignored), and rotate any key that's been shared.
