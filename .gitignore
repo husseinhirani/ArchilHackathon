@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.env
+.arena_cache/
+arena_data/
+.playwright-mcp/
+*.tmp

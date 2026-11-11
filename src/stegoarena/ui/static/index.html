@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StegoArena</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0e1116; --panel: #161b22; --panel2: #1c2230; --line: #2a3140; --text: #e6edf3; --muted: #8b949e;
+    --accent: #7c9cff; --good: #3fb950; --bad: #f85149; --warn: #d29922; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; }
+  header { display: flex; align-items: baseline; gap: 16px; padding: 14px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 20px; letter-spacing: .3px; }
+  header .tag { color: var(--muted); }
+  header .stats { margin-left: auto; color: var(--muted); font-family: var(--mono); font-size: 12px; }
+  main { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; padding: 16px 20px; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+  .panel h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .tabs button, .ctl button { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; }
+  .tabs button.on { border-color: var(--accent); color: var(--accent); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-top: 10px; }
+  .card { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: repeating-conic-gradient(#222 0 25%, #2c2c2c 0 50%) 0 0/16px 16px; }
+  .card .body { padding: 8px 10px; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; }
+  .cracked { background: rgba(63,185,80,.15); color: var(--good); }
+  .survived { background: rgba(248,81,73,.15); color: var(--bad); }
+  .chip { display: inline-block; font-family: var(--mono); font-size: 11px; color: var(--muted); background: #0d1117; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin: 2px 2px 0 0; }
+  .why { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .attempts { margin-top: 6px; display: flex; gap: 4px; flex-wrap: wrap; }
+  .attempts button { font-family: var(--mono); font-size: 11px; background: #0d1117; color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; cursor: pointer; }
+  .attempts button.win { border-color: var(--good); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td, th { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+  th { color: var(--muted); font-weight: 500; }
+  td.num { font-family: var(--mono); text-align: right; }
+  #replay { display: flex; flex-direction: column; gap: 6px; max-height: 70vh; overflow: auto; margin-top: 10px; }
+  .ev { border-left: 3px solid var(--line); padding: 6px 10px; background: var(--panel2); border-radius: 0 6px 6px 0; animation: in .25s ease; }
+  @keyframes in { from { opacity: 0; transform: translateY(4px); } }
+  .ev .h { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  .ev pre { margin: 4px 0 0; white-space: pre-wrap; word-break: break-word; font: 12px/1.4 var(--mono); max-height: 220px; overflow: auto; }
+  .ev.reasoning { border-color: #a371f7; } .ev.reasoning .t { font-style: italic; color: #d2c3ff; }
+  .ev.tool_call { border-color: var(--accent); } .ev.tool_call pre { color: #b6c8ff; }
+  .ev.search, .ev.fetch { border-color: var(--warn); }
+  .ev.signal { border-color: #39c5cf; } .ev.submit { border-color: var(--good); } .ev.error { border-color: var(--bad); }
+  .ev.scored { border-color: var(--good); background: rgba(63,185,80,.08); }
+  .muted { color: var(--muted); }
+  .kv { font-family: var(--mono); font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>StegoArena</h1>
+  <span class="tag">a hider designs, a finder hunts blind, both climb an Elo ladder. Every attempt runs in a forked Archil sandbox.</span>
+  <span class="stats" id="stats"></span>
+</header>
+<main>
+  <section class="panel">
+    <h2>Rounds</h2>
+    <div class="row tabs" id="tabs"></div>
+    <div id="roundMeta" class="muted kv" style="margin-top:8px"></div>
+    <div id="research"></div>
+    <div class="cards" id="cards"></div>
+  </section>
+  <section style="display:flex;flex-direction:column;gap:16px;min-width:0">
+    <div class="panel">
+      <h2>Elo ladder</h2>
+      <canvas id="elo" height="170"></canvas>
+      <table id="ladder" style="margin-top:10px"></table>
+    </div>
+    <div class="panel">
+      <h2>Replay</h2>
+      <div class="row ctl">
+        <span id="replayTitle" class="kv muted">pick an attempt on a scheme card</span>
+        <span style="margin-left:auto"></span>
+        <button id="bStep">step</button><button id="bPlay">play</button><button id="bAll">show all</button>
+      </div>
+      <div id="replay"></div>
+    </div>
+  </section>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+let DATA, CUR = null, chart, ev = [], pos = 0, timer = null;
+
+async function load() {
+  DATA = await (await fetch("/api/overview")).json();
+  const rs = DATA.rounds;
+  $("#tabs").innerHTML = rs.map((r) => `<button data-r="${r}">Round ${r}</button>`).join("") || '<span class="muted">no rounds yet. Run <code>stegoarena run</code></span>';
+  $("#tabs").querySelectorAll("button").forEach((b) => (b.onclick = () => showRound(+b.dataset.r)));
+  const h = DATA.elo.history;
+  $("#stats").textContent = `${rs.length} rounds · ${h.length} matches · ${Object.keys(DATA.lineage.nodes).length} schemes`;
+  drawElo();
+  if (rs.length) showRound(CUR ?? rs[rs.length - 1]);
+}
+
+function showRound(r) {
+  CUR = r;
+  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", +b.dataset.r === r));
+  const s = DATA.summaries[r];
+  $("#roundMeta").textContent = `provider=${s.provider} · K=${s.k} forks/scheme · finders=${s.finders.join(",")} · hider=${s.hider} · search=${s.search} · ${s.elapsed_s}s`;
+  const res = DATA.research[r];
+  $("#research").innerHTML = res ? `<div class="why" style="margin-top:6px">hider research (${esc(res[0]?.provider)}): ${res.map((q) => `<b>${esc(q.query)}</b> → ${q.results.map((x) => esc(x.title)).slice(0, 2).join(" · ")}`).join("<br>")}</div>` : "";
+  $("#cards").innerHTML = s.schemes.map((c) => {
+    const sp = c.spec;
+    const chips = [sp.technique, sp.technique === "lsb" ? `ch=${sp.channels.join("")} bp=${sp.bit_plane}` : "",
+      sp.technique === "dct" ? `${sp.channels[0]} (${sp.dct_coeff}) δ=${sp.dct_delta}` : "", sp.technique === "palette" ? `${sp.palette_colors} colors` : "",
+      sp.technique === "alpha" ? sp.alpha_mode : "", sp.order !== "sequential" ? "prng" : "", sp.cipher !== "none" ? sp.cipher : "",
+      sp.key_source !== "none" ? `key:${sp.key_source}` : "", sp.decoy !== "none" ? `decoy:${sp.decoy}` : ""].filter(Boolean);
+    return `<div class="card"><img src="/img/${r}/${c.scheme_id}.png" loading="lazy" alt="">
+      <div class="body"><div class="row"><b>${c.scheme_id}</b><span class="badge ${c.cracked ? "cracked" : "survived"}">${c.cracked ? "cracked" : "survived"}</span>
+      <span class="kv muted" style="margin-left:auto">d=${c.difficulty} · ${c.best_score.toFixed(2)}</span></div>
+      <div>${chips.map((x) => `<span class="chip">${esc(x)}</span>`).join("")}</div>
+      <div class="why">${c.parent_id ? `↳ from ${c.parent_id}. ` : ""}${esc(c.rationale)}</div>
+      <div class="attempts">${c.attempts.map((a) => `<button class="${a === c.best_attempt ? "win" : ""}" data-a="${a}">${a.split("-").slice(1, 2)}</button>`).join("")}</div></div></div>`;
+  }).join("");
+  $("#cards").querySelectorAll(".attempts button").forEach((b) => (b.onclick = () => openAttempt(r, b.dataset.a)));
+}
+
+function drawElo() {
+  const h = DATA.elo.history, finders = [...new Set(h.map((e) => e.finder))];
+  const colors = ["#7c9cff", "#3fb950", "#d29922", "#a371f7"];
+  const ds = finders.map((f, i) => ({ label: f, borderColor: colors[i % 4], backgroundColor: colors[i % 4], tension: .25, pointRadius: 2,
+    data: h.map((e, j) => ({ x: j + 1, y: e.finder === f ? e.finder_rating : null })).filter((p) => p.y !== null) }));
+  ds.push({ label: "schemes (after match)", type: "scatter", borderColor: "#f85149", backgroundColor: h.map((e) => e.score >= .45 ? "#3fb95088" : "#f8514988"),
+    data: h.map((e, j) => ({ x: j + 1, y: e.scheme_rating })) });
+  chart?.destroy();
+  chart = new Chart($("#elo"), { type: "line", data: { datasets: ds },
+    options: { parsing: true, animation: false, scales: { x: { type: "linear", title: { display: true, text: "match", color: "#8b949e" }, ticks: { color: "#8b949e" }, grid: { color: "#2a3140" } },
+      y: { ticks: { color: "#8b949e" }, grid: { color: "#2a3140" } } }, plugins: { legend: { labels: { color: "#e6edf3", boxWidth: 10 } } } } });
+  const R = Object.entries(DATA.elo.ratings).sort((a, b) => b[1] - a[1]).slice(0, 12);
+  $("#ladder").innerHTML = "<tr><th>#</th><th>player</th><th style='text-align:right'>Elo</th></tr>" +
+    R.map(([p, v], i) => `<tr><td class="num">${i + 1}</td><td>${p.startsWith("finder:") ? "🔎 " : "🖼 "}${esc(p.split(":")[1])}</td><td class="num">${v.toFixed(0)}</td></tr>`).join("");
+}
+
+async function openAttempt(r, a) {
+  const d = await (await fetch(`/api/attempt/${r}/${a}`)).json();
+  ev = d.trace; pos = 0; stop(); $("#replay").innerHTML = "";
+  const res = d.result || {};
+  $("#replayTitle").textContent = `${a} · ${res.finder ?? ""} · ${res.cracked ? "CRACKED" : "not cracked"} · score ${res.score ?? "?"}`;
+  step();
+}
+
+function render(e) {
+  const t = `<div class="h">+${e.t.toFixed(1)}s · ${e.type}${e.tool ? " · " + e.tool : ""}</div>`;
+  let b = "";
+  switch (e.type) {
+    case "reasoning": case "text": b = `<div class="t">${esc(e.text)}</div>`; break;
+    case "tool_call": b = `<pre>${e.tool === "run_shell" ? "$ " + esc(e.input.command) : esc(JSON.stringify(e.input))}</pre>`; break;
+    case "tool_result": b = `<pre>${esc(e.output)}</pre>`; break;
+    case "search": b = `<b>${esc(e.provider)}</b>: “${esc(e.query)}”<pre>${e.titles.map(esc).join("\n")}</pre>`; break;
+    case "fetch": b = `<b>${esc(e.provider)}</b> fetch ${esc(e.url)}<div class="muted">${esc(e.title)}</div>`; break;
+    case "signal": b = `<b>${esc(e.technique)}</b>: ${esc(e.anomaly)} <span class="kv muted">${esc(JSON.stringify(e.params))}</span>`; break;
+    case "submit": b = `submitted <b>${esc(e.flag)}</b> ${e.where ? `<span class="muted">(${esc(e.where)})</span>` : ""}`; break;
+    case "scored": b = `<b>score ${e.score}</b> · ${e.cracked ? "flag correct ✅" : "flag not recovered"} <span class="kv muted">${esc(JSON.stringify(e.components))}</span>`; break;
+    case "fork": b = `forked <b>${esc(e.sandbox)}</b> on ${esc(e.provider)} in ${e.fork_s}s`; break;
+    case "start": b = `<span class="kv">${esc(e.finder)} · ${esc(e.model)} · budget ${e.budget_s}s</span>`; break;
+    case "end": b = `<span class="kv">stop=${esc(e.stop_reason)} · turns=${e.turns} · ${e.elapsed_s}s</span>`; break;
+    default: b = `<pre>${esc(JSON.stringify(e))}</pre>`;
+  }
+  const div = document.createElement("div"); div.className = `ev ${e.type}`; div.innerHTML = t + b;
+  $("#replay").appendChild(div); div.scrollIntoView({ block: "nearest" });
+}
+function step() { if (pos < ev.length) render(ev[pos++]); else stop(); }
+function stop() { clearInterval(timer); timer = null; $("#bPlay").textContent = "play"; }
+$("#bStep").onclick = step;
+$("#bAll").onclick = () => { stop(); while (pos < ev.length) render(ev[pos++]); };
+$("#bPlay").onclick = () => { if (timer) return stop(); $("#bPlay").textContent = "pause"; timer = setInterval(step, 900); };
+load(); setInterval(() => { if (!timer) load(); }, 15000);
+</script>
+</body>
+</html>
