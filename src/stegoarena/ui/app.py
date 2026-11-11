@@ -32,6 +32,20 @@ def create_app(cfg) -> FastAPI:
     def overview():
         rounds = store.read_json("rounds/index.json", {"rounds": []})["rounds"]
         summaries = {r: store.read_json(f"rounds/{r}/summary.json") for r in rounds}
+        # finished Live matches (photo uploads) show up as rounds too; they never touch Elo
+        for m in store.read_json("live/index.json", {"matches": []})["matches"]:
+            meta = store.read_json(f"live/{m['lid']}/meta.json") or {}
+            if meta.get("status") != "done" or not meta.get("spec"):
+                continue
+            res = meta.get("results", [])
+            summaries[meta["round"]] = {
+                "live": True, "lid": m["lid"], "created": meta.get("created"), "provider": "archil" if res else "",
+                "elapsed_s": (meta.get("finished") or 0) - (meta.get("created") or 0),
+                "schemes": [{"scheme_id": "live", "spec": meta["spec"], "difficulty": meta.get("difficulty", 0),
+                             "cracked": any(r["cracked"] for r in res), "best_score": max([r["score"] or 0 for r in res] or [0]),
+                             "attempts": [r["aid"] for r in res], "best_attempt": None,
+                             "rationale": f"[{(meta.get('hider') or {}).get('name', 'hider')}] {meta.get('rationale', '')}"}]}
+            rounds = rounds + [meta["round"]]
         return {
             "rounds": rounds,
             "summaries": summaries,
