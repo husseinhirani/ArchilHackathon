@@ -151,3 +151,13 @@ def test_child_inherits_playbook_and_tools(tmp_path):
     child = child_finder(store, parent, "mutant", "new persona", generation=2)
     c2 = FinderGenome.load(store, child.id)
     assert c2.parent == parent.id and c2.playbook == ["rule A"] and "lattice_scan.py" in c2.tool_files(store)
+
+
+def test_archil_names_are_valid():
+    import re
+
+    from stegoarena.sandbox.archil_provider import archil_name
+
+    for raw in ["sa-g1-decoy_0-f-statistician-b9d93-k0-5838", "_X_" * 40, "f-locksmith_probe_then_sweep-1f953-b0", "___"]:
+        n = archil_name(raw)
+        assert re.fullmatch(r"[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?", n), (raw, n)

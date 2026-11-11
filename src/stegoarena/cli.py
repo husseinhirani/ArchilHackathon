@@ -48,6 +48,7 @@ def main(argv: list[str] | None = None) -> None:
         if name == "eval":
             p.add_argument("--genome", default="champion", help="static | champion | <genome id>")
             p.add_argument("--label", default=None)
+            p.add_argument("--repeats", type=int, default=1, help="attempts per eval scheme (reduces noise)")
         if name == "run":
             p.add_argument("--rounds", type=int, default=1)
             p.add_argument("--start-round", type=int, default=None, help="default: after the last stored round")
@@ -146,7 +147,7 @@ async def _async_main(a, cfg) -> None:
                 else:
                     g, gen = FinderGenome.load(arena.store, a.genome), None
                 label = a.label or f"{g.id}@gen{gen}"
-                r = await run_eval(arena, g, label, gen)
+                r = await run_eval(arena, g, label, gen, repeats=a.repeats)
                 print(json.dumps({k: r[k] for k in ("label", "crack_rate", "mean_score", "mean_time_to_crack_s", "decoys_taken", "playbook_len", "tools")}, indent=1))
         finally:
             await arena.close()
