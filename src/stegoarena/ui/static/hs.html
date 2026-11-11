@@ -64,8 +64,14 @@
   .banner.none { background: var(--panel); border: 1px solid var(--line); }
   .banner .secret { font-size: 22px; font-weight: 700; margin: 4px 0; }
   .race { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
-  .imgwrap { background: #0d1117; border: 1px solid var(--line); border-radius: 8px; display: grid; place-items: center; overflow: hidden; }
-  .imgwrap canvas, .imgwrap img { max-width: 100%; height: auto; image-rendering: pixelated; display: block; }
+  .imgwrap { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; line-height: 0; }
+  .imgwrap canvas, .imgwrap img { width: 100%; height: auto; image-rendering: pixelated; display: block; }
+  .meter { font-family: var(--mono); font-size: 12px; margin-top: 6px; }
+  .meter b { color: var(--text); }
+  .adv-locked { font-size: 12px; color: var(--muted); padding: 8px 10px; border: 1px dashed var(--line); border-radius: 6px; margin-top: 8px; }
+  .chunk { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+  .chunk code { background: #0d1117; padding: 1px 6px; border-radius: 4px; }
+  .why-off { font-size: 12px; color: var(--warn); margin-left: 4px; }
   .tabs { display: flex; gap: 6px; margin: 12px 0 8px; flex-wrap: wrap; }
   .tool { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
   .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
@@ -208,19 +214,30 @@ async function raceView(cid, watch) {
             <div class="row"><span class="muted">Channel</span>${["RGB", "R", "G", "B", "A"].map((c) => `<button data-ch="${c}">${c}</button>`).join("")}
               <span class="muted" style="margin-left:8px">Bit</span>${[0, 1, 2].map((p) => `<button data-pl="${p}">${p}</button>`).join("")}
               <button data-orig>original</button></div>
-            <div class="out muted">Hidden bits often look like noise in a band at the top of a bit plane, where a clean photo shows shapes.</div>
+            <div class="out muted">Hidden bits look like noise where a clean photo shows smooth shapes. Simple hiding starts at the top-left corner, so compare the meter below across channels and bit planes.</div>
+            <div class="meter muted" id="meter"></div>
           </div>
           <div class="tool" id="t-inspect" hidden><button id="insp">Read PNG chunks + trailing bytes</button><div class="out" id="inspout"></div></div>
           <div class="tool" id="t-decode" hidden>
             <div class="grid2">
-              <div><label>Technique</label><select id="d-tech"><option>lsb</option><option>alpha</option><option>palette</option><option>dct</option></select></div>
-              <div><label>Channels</label><select id="d-ch"><option>R,G,B</option><option>R</option><option>G</option><option>B</option><option>R,G</option><option>R,B</option><option>G,B</option></select></div>
-              <div><label>Bit plane</label><select id="d-bp"><option>0</option><option>1</option><option>2</option></select></div>
-              <div><label>Order</label><select id="d-ord"><option>sequential</option><option>prng</option></select></div>
-              <div><label>Cipher</label><select id="d-ci"><option>none</option><option>xor</option><option>aes</option></select></div>
+              <div><label>Technique</label><select id="d-tech">
+                <option value="lsb">LSB (colour channels)</option>
+                <option value="alpha">Alpha LSB (A channel)</option>
+                <option value="transparent">Transparent pixels (RGB)</option>
+                <option value="palette">Palette index LSB</option>
+                <option value="dct">DCT coefficient</option></select></div>
+              <div><label>Channels</label><select id="d-ch"></select></div>
+              <div id="w-bp"><label>Bit plane</label><select id="d-bp"><option>0</option><option>1</option><option>2</option></select></div>
+              <div id="w-coeff" hidden><label>DCT coefficient (u,v)</label><select id="d-coeff">${["2,1", "1,2", "2,2", "3,1", "1,3", "3,2", "2,3"].map((c) => `<option>${c}</option>`).join("")}</select></div>
+              <div id="w-delta" hidden><label>DCT step</label><select id="d-delta">${[12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32].map((d) => `<option ${d === 16 ? "selected" : ""}>${d}</option>`).join("")}</select></div>
+            </div>
+            <div id="adv-lock" class="adv-locked">🔒 Order, cipher and key unlock after you use an analysis tool (Bit planes or Inspect file). Look before you guess.</div>
+            <div class="grid2" id="adv" hidden style="margin-top:8px">
+              <div><label>Order</label><select id="d-ord"><option value="sequential">sequential</option><option value="prng">PRNG (key is the seed)</option></select></div>
+              <div><label>Cipher</label><select id="d-ci"><option value="none" selected>none</option><option value="xor">XOR</option><option value="aes">AES</option></select></div>
               <div><label>Key</label><input type="text" id="d-key" placeholder="(none)"></div>
             </div>
-            <div class="row" style="margin-top:10px"><button id="dtry">Try decode</button><button id="dwl">Try every wordlist key</button></div>
+            <div class="row" style="margin-top:10px"><button id="dtry">Try decode</button><button id="dwl">Try every wordlist key</button><span class="why-off" id="dwhy"></span></div>
             <div class="out" id="dout"></div>
           </div>
           <label for="guess">Your answer</label>
@@ -253,6 +270,18 @@ async function raceView(cid, watch) {
       d[i + 3] = 255;
     }
     S.ctx.putImageData(out, 0, 0);
+    // noise meter: how often neighbouring bits differ (pure noise ≈ 50%). Sequential embedding starts at the
+    // top-left pixel, so compare the first 64 pixels of row 0 with the rest of the image, per channel.
+    const W = S.pix.width, H = S.pix.height, N = Math.min(64, W);
+    const flip = (j, y0, y1, x1) => { let diff = 0, n = 0;
+      for (let y = y0; y < y1; y++) for (let x = 1; x < x1; x++) {
+        diff += ((src[(y * W + x) * 4 + j] >> pl) & 1) !== ((src[(y * W + x - 1) * 4 + j] >> pl) & 1); n++; }
+      return n ? Math.round(100 * diff / n) : 0; };
+    const names = ch === "RGB" ? ["R", "G", "B"] : [ch];
+    $("#meter").innerHTML = `noise in bit ${pl}, image start (first ${N} px) vs rest: ` + names.map((c) => {
+      const j = { R: 0, G: 1, B: 2, A: 3 }[c];
+      return `${c} <b>${flip(j, 0, 1, N)}%</b> / ${flip(j, 1, H, W)}%`; }).join(" · ") + ` <span class="muted">(pure noise ≈ 50%)</span>`;
+    unlock();
   };
   document.querySelectorAll("[data-ch]").forEach((b) => b.onclick = () => { ch = b.dataset.ch; plane(); });
   document.querySelectorAll("[data-pl]").forEach((b) => b.onclick = () => { pl = +b.dataset.pl; plane(); });
@@ -261,18 +290,59 @@ async function raceView(cid, watch) {
     document.querySelectorAll("[data-t]").forEach((x) => x.classList.toggle("on", x === b));
     ["planes", "inspect", "decode"].forEach((t) => $("#t-" + t).hidden = t !== b.dataset.t);
   });
+  // ---- progressive disclosure: advanced options appear after the player analyses the image
+  let unlocked = false;
+  function unlock() { if (unlocked) return; unlocked = true; $("#adv").hidden = false; $("#adv-lock").hidden = true; validate(); }
   $("#insp").onclick = async () => {
     const r = await api(`/api/c/${cid}/inspect`);
-    $("#inspout").textContent = `chunks: ${r.chunks.map((c) => c.type).join(" ")}\n` +
-      `text chunks: ${Object.keys(r.text).length ? Object.entries(r.text).map(([k, v]) => `\n  ${k}: ${v}`).join("") : "(none)"}\n` +
-      `bytes after IEND: ${r.trailer_bytes}${r.trailer_bytes ? "\n  " + r.trailer.trim() : ""}`;
+    const texts = Object.entries(r.text);
+    $("#inspout").innerHTML = `<div>chunks: ${r.chunks.map((c) => esc(c.type)).join(" ")} · image mode ${esc(pub.image_mode)}</div>` +
+      (texts.length ? `<div style="margin-top:6px">text chunks (metadata anyone can read):</div>` + texts.map(([k, v]) =>
+        `<div class="chunk"><code>${esc(k)}</code> ${esc(v)} <button data-usekey="${esc(v)}">use as key</button></div>`).join("") +
+        `<div class="muted" style="margin-top:4px">A short word in metadata is often a password, which means something is encrypted.</div>`
+        : `<div style="margin-top:6px">text chunks: (none)</div>`) +
+      `<div style="margin-top:6px">bytes after the end of the PNG: ${r.trailer_bytes}${r.trailer_bytes ? `<pre class="out">${esc(r.trailer.trim())}</pre><span class="muted">Data stuck after the image end is easy to spot, which makes it a classic place for a decoy.</span>` : ""}</div>`;
+    $("#inspout").querySelectorAll("[data-usekey]").forEach((b) => b.onclick = () => {
+      $("#d-key").value = b.dataset.usekey; document.querySelector('[data-t="decode"]').click(); validate(); });
+    unlock();
   };
-  const dspec = () => ({ technique: $("#d-tech").value, channels: $("#d-ch").value.split(","), bit_plane: +$("#d-bp").value,
-    order: $("#d-ord").value, cipher: $("#d-ci").value });
+  const CH = { lsb: ["R,G,B", "R", "G", "B", "R,G", "R,B", "G,B"], alpha: ["A"], transparent: ["R,G,B (transparent pixels)"], palette: ["palette index"], dct: ["R", "G", "B"] };
+  const needsMode = { alpha: "RGBA", transparent: "RGBA", palette: "P" };
+  [...$("#d-tech").options].forEach((o) => { // techniques this image can't hold are listed but disabled
+    if (needsMode[o.value] && pub.image_mode !== needsMode[o.value]) { o.disabled = true; o.textContent += o.value === "palette" ? " (not an indexed-colour image)" : " (no alpha in this image)"; } });
+  function syncTech() {
+    const t = $("#d-tech").value, ch = $("#d-ch"), prev = ch.value;
+    ch.innerHTML = CH[t].map((c) => `<option value="${c.split(" ")[0]}">${c}</option>`).join("");
+    if (CH[t].some((c) => c.split(" ")[0] === prev)) ch.value = prev;
+    ch.disabled = CH[t].length === 1;
+    $("#w-bp").hidden = t !== "lsb";
+    $("#w-coeff").hidden = $("#w-delta").hidden = t !== "dct";
+    validate();
+  }
+  const keyRequired = () => $("#d-ord").value === "prng" || $("#d-ci").value !== "none";
+  function validate() {
+    const need = keyRequired(), hasKey = !!$("#d-key").value.trim();
+    const ciName = { xor: "XOR", aes: "AES" }[$("#d-ci").value];
+    const why = need && !hasKey ? (ciName ? `${ciName} needs a key. Enter one or click Try every wordlist key.` : "PRNG order needs a key (the seed). Enter one or click Try every wordlist key.") : "";
+    $("#dtry").disabled = !!why; $("#dtry").title = why; $("#dwhy").textContent = why;
+    $("#dwl").disabled = !need;
+    $("#dwl").title = need ? `Tries all ${pub.wordlist_size} words in the shared wordlist as the key` : "These settings don't use a key, so the wordlist won't change anything";
+  }
+  $("#dwl").textContent = `Try every wordlist key (${pub.wordlist_size} keys)`;
+  $("#d-tech").onchange = syncTech;
+  ["#d-ord", "#d-ci"].forEach((id) => $(id).onchange = validate);
+  $("#d-key").oninput = validate;
+  syncTech();
+  const dspec = () => {
+    const t = $("#d-tech").value;
+    return { technique: t, channels: t === "lsb" || t === "dct" ? $("#d-ch").value.split(",") : t === "alpha" ? ["A"] : [],
+      bit_plane: +$("#d-bp").value, order: $("#d-ord").value, cipher: $("#d-ci").value,
+      ...(t === "dct" ? { dct_coeff: $("#d-coeff").value, dct_delta: +$("#d-delta").value } : {}) };
+  };
   const tryDecode = async (wordlist) => {
-    $("#dout").textContent = wordlist ? "trying ~150 keys…" : "decoding…";
+    $("#dout").textContent = wordlist ? `trying ${pub.wordlist_size} keys…` : "decoding…";
     try {
-      const r = await api(`/api/c/${cid}/try`, { method: "POST", body: { spec: dspec(), key: $("#d-key").value || null, wordlist } });
+      const r = await api(`/api/c/${cid}/try`, { method: "POST", body: { spec: dspec(), key: $("#d-key").value.trim() || null, wordlist } });
       $("#dout").innerHTML = r.found ? `<span class="found">Found: ${esc(r.message)}</span>${r.key ? ` <span class="muted">(key ${esc(r.key)})</span>` : ""}\n<span class="muted">Submit it below. Careful, decoys exist.</span>`
         : r.error ? esc(r.error) : `nothing with those settings${r.tried > 1 ? ` (${r.tried} keys tried)` : ""}`;
       if (r.found) $("#guess").value = r.message;
@@ -323,10 +393,18 @@ function render(e) {
   return `<div class="ev ${esc(e.type)}"><div class="ty">${(e.t ?? 0).toFixed(1)}s · ${esc(e.type)}${e.lane && e.lane !== "main" ? " · " + esc(e.lane) : ""}</div>${b}</div>`;
 }
 
+const clip = (x, n = 40) => { x = String(x ?? ""); return x.length > n ? x.slice(0, n - 1) + "…" : x; };
 function hrender(e) {
   const t = `${(e.t ?? 0).toFixed(1)}s`;
-  if (e.type === "try") return `${t} tried ${esc(e.spec?.technique)} ${esc((e.spec?.channels || []).join(""))}${e.wordlist ? " +wordlist" : e.key ? " key=" + esc(e.key) : ""} → ${e.found ? "found something" : "nothing"}`;
-  if (e.type === "guess") return `${t} guessed ${e.correct ? "✅" : e.decoy ? "a decoy 😈" : "wrong"}`;
+  if (e.type === "try") {
+    const sp = e.spec || {}, tech = sp.technique === "transparent" ? "transparent-pixels" : sp.technique;
+    const where = sp.technique === "lsb" ? ` ${(sp.channels || []).join("")} bit ${sp.bit_plane}` : sp.technique === "dct" ? ` ${(sp.channels || []).join("")} (${sp.dct_coeff}) step ${sp.dct_delta}` : "";
+    const extra = [sp.order === "prng" ? "prng" : "", sp.cipher && sp.cipher !== "none" ? sp.cipher : ""].filter(Boolean).join(" ");
+    const keys = e.wordlist ? ` · wordlist (${e.tried ?? "?"} keys)` : e.key ? ` · key "${esc(clip(e.key, 20))}"` : "";
+    const res = e.error ? `rejected: ${esc(e.error)}` : e.found ? "found something" : e.wordlist ? `tried ${e.tried ?? "?"} keys → nothing` : "nothing";
+    return `${t} tried ${esc(tech)}${esc(where)}${extra ? " " + esc(extra) : ""}${keys} → ${res}`;
+  }
+  if (e.type === "guess") return `${t} guessed "${esc(clip(e.message))}" → ${e.correct ? "✅ correct" : e.decoy ? "a decoy 😈" : "wrong"}`;
   if (e.type === "inspect") return `${t} inspected the file`;
   return `${t} ${esc(e.type)}`;
 }

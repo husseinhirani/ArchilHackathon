@@ -13,6 +13,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel
 
+from ..generator.build import WORDLIST
 from ..hideseek import LEVEL_BLURB, LEVELS, ChallengeError, HideSeek, base, build_challenge, inspect_png, try_decode
 
 STATIC = Path(__file__).resolve().parent / "static"
@@ -72,6 +73,7 @@ def mount_hideseek(app: FastAPI, cfg, *, arena=None) -> HideSeek:
     @app.get("/api/hs/levels")
     def levels():
         return {"levels": {k: {"blurb": LEVEL_BLURB[k]} for k in LEVELS}, "finder": arena.finder_kind,
+                "wordlist_size": len(WORDLIST),
                 "provider": arena.provider.name, "search": arena.search.name}
 
     @app.post("/api/c")
@@ -136,8 +138,10 @@ def mount_hideseek(app: FastAPI, cfg, *, arena=None) -> HideSeek:
         last_try[cid] = now
         res = try_decode(store.read_bytes(key), req.spec, req.key, req.wordlist)
         if hs.race(cid).get("status") == "racing":
-            hs.human_event(cid, "try", spec={k: req.spec.get(k) for k in ("technique", "channels", "bit_plane", "order", "cipher")},
-                           key=req.key, wordlist=req.wordlist, found=res.get("found"))
+            hs.human_event(cid, "try", spec={k: req.spec.get(k) for k in ("technique", "channels", "bit_plane", "order", "cipher",
+                                                                          "dct_coeff", "dct_delta")},
+                           key=req.key, wordlist=req.wordlist, found=res.get("found"), tried=res.get("tried"),
+                           error=res.get("error"))
         return res  # a found message is not a win until the seeker submits it as a guess
 
     @app.post("/api/c/{cid}/guess")
