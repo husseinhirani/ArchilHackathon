@@ -51,7 +51,7 @@
 
   <div class="steps" id="steps"></div>
 
-  <section class="panel" style="margin-bottom:16px">
+  <section class="panel" id="resultPanel" hidden style="margin-bottom:16px">
     <h2>The result <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">does experience beat a bigger model?</span></h2>
     <div class="headline">
       <div id="headline"></div>
@@ -158,9 +158,8 @@ function renderHeadline() {
     const r = st || best;
     $("#headline").innerHTML = `<div class="muted small">Crack rate on held-out puzzles ${tip("Held-out eval")}</div><div class="big">${pct(r.crack_rate)}</div>
       <div class="muted">${esc(r.label)}. Run <code>stegoarena eval --genome ${st ? "champion" : "static"}</code> to compare.</div>`;
-  } else {
-    $("#headline").innerHTML = `<div class="empty">No held-out results yet. Run <code>stegoarena eval --genome static</code>, then <code>stegoarena evolve</code>, then <code>stegoarena eval --genome champion</code>.</div>`;
   }
+  $("#resultPanel").hidden = !ev_.length; // no held-out results yet: hide the whole panel
   curveChart?.destroy();
   $("#curve").hidden = !ev_.length;
   if (ev_.length) {
