@@ -185,10 +185,12 @@ function renderHighlights() {
 // ---------------------------------------------------------------- rounds
 function renderRounds() {
   const rs = DATA.rounds;
-  $("#tabs").innerHTML = rs.map((r) => `<button data-r="${r}">${DATA.summaries[r]?.learned ? "Gen" : "Round"} ${r}</button>`).join("");
+  const tabName = (r) => { const s = DATA.summaries[r]; return s?.live ? `📸 Live ${new Date(s.created * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : `${s?.learned ? "Gen" : "Round"} ${r}`; };
+  $("#tabs").innerHTML = rs.map((r) => `<button data-r="${r}">${tabName(r)}</button>`).join("");
+  $("#tabs").hidden = !rs.length;
   $("#tabs").querySelectorAll("button").forEach((b) => (b.onclick = () => showRound(+b.dataset.r)));
   if (rs.length) showRound(CUR ?? rs[rs.length - 1]);
-  else $("#cards").innerHTML = `<div class="empty" style="grid-column:1/-1">No rounds yet. Run <code>stegoarena run</code> or <code>stegoarena evolve</code>; this page fills in live.</div>`;
+  else $("#cards").innerHTML = `<div class="empty" style="grid-column:1/-1">No matches yet. Upload a photo on the Live page and watch the agents hide and hunt; it'll show up here to replay.<div style="margin-top:12px"><a class="btn primary" href="/live">Upload a photo →</a></div></div>`;
 }
 
 function pill(meta, aid) {
@@ -204,7 +206,7 @@ function showRound(r) {
   CUR = r;
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", +b.dataset.r === r));
   const s = DATA.summaries[r], meta = DATA.attempt_meta?.[r] || {};
-  $("#roundMeta").textContent = `${s.schemes.length} images · ${s.schemes.filter((c) => c.cracked).length} cracked · ${s.provider} · ${Math.round(s.elapsed_s)}s`;
+  $("#roundMeta").textContent = s.live ? `your photo · ${s.schemes[0].cracked ? "cracked" : "survived"} · ${Math.round(s.elapsed_s)}s` : `${s.schemes.length} images · ${s.schemes.filter((c) => c.cracked).length} cracked · ${s.provider} · ${Math.round(s.elapsed_s)}s`;
   const res = DATA.research[r];
   $("#research").innerHTML = res ? `<div class="callout warn research"><b>🔎 Before designing, the hiders researched on Keenable</b> ${tip("Keenable")}${res.map((q) =>
     `<div class="q"><b>${esc(q.query)}</b>${q.why ? ` <span class="muted">· ${esc(q.why)}</span>` : ""}<div class="muted">→ ${q.results.map((x) => esc(x.title)).slice(0, 2).join(" · ")}</div></div>`).join("")}</div>` : "";

@@ -80,8 +80,12 @@ def test_live_match_end_to_end_offline(client):
     assert any(e["type"] == "fork" for e in lane_events[aid]) and any(e["type"] == "scored" for e in lane_events[aid])
     assert len(meta["results"]) == 1 and meta["reveal"]["flag"].startswith("FLAG{")
     assert client.get("/api/live/recent").json()[0]["lid"] == lid
-    # live matches stay out of the Lab's round index and Elo
-    assert client.get("/api/overview").json()["rounds"] == []
+    # finished live matches appear in the Lab's Rounds (replayable) but never touch Elo
+    ov = client.get("/api/overview").json()
+    r = str(meta["round"])
+    assert meta["round"] in ov["rounds"] and ov["summaries"][r]["live"] is True
+    assert ov["summaries"][r]["schemes"][0]["attempts"] == [l["aid"] for l in meta["lanes"]]
+    assert ov["elo"]["history"] == []
 
 
 def test_invisibility_measure():
