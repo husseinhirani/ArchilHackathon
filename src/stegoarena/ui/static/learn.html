@@ -85,7 +85,7 @@ async function lesson(level) {
       <div class="chat" id="chat"><div class="msg">Ask me anything about this step.</div></div>
       <div class="row"><input type="text" id="q" placeholder="Ask for a hint…" class="grow" autocomplete="off"><button class="primary" id="ask">Ask</button></div></div></div>`;
   document.querySelectorAll("[data-s]").forEach((b) => b.onclick = () => go(b.dataset.s));
-  $("#ask").onclick = askTutor; $("#q").onkeydown = (e) => e.key === "Enter" && askTutor();
+  $("#ask").onclick = askTutor; $("#q").onkeydown = (e) => { if (e.key === "Enter") askTutor(); }; // block body: returning false would cancel every keystroke
   go("concept");
 }
 
@@ -131,7 +131,7 @@ function hide() {
       c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); state.photo = c.toDataURL("image/png"); };
     img.src = URL.createObjectURL(f);
   };
-  $("#msg").onkeydown = (e) => e.key === "Enter" && $("#go").click();
+  $("#msg").onkeydown = (e) => { if (e.key === "Enter") $("#go").click(); }; // block body: returning false would cancel every keystroke
   $("#go").onclick = async () => {
     $("#go").disabled = true; $("#err").textContent = "";
     try { state.hide = await api(`/api/learn/${state.level}/hide`, { message: $("#msg").value, photo_b64: state.photo }); showHide(); }
@@ -238,7 +238,7 @@ async function practice() {
     } catch (e) { $("#dout").textContent = e.message; }
   };
   $("#dtry").onclick = () => dec(false); $("#dwl").onclick = () => dec(true);
-  $("#ans").onkeydown = (e) => e.key === "Enter" && $("#sub").click();
+  $("#ans").onkeydown = (e) => { if (e.key === "Enter") $("#sub").click(); }; // block body: returning false would cancel every keystroke
   $("#sub").onclick = async () => {
     const r = await api(`/api/learn/s/${sid}/check`, { message: $("#ans").value });
     $("#aout").innerHTML = r.correct ? `<span class="found">Correct!</span> <button class="primary sm" onclick="go('graduate')">Next →</button>` : r.decoy ? `<span class="bad">That's a decoy.</span>` : "Not it. Ask the tutor for a nudge.";
