@@ -74,5 +74,5 @@ def difficulty(spec: SchemeSpec | dict) -> float:
     d += {"sequential": 0.0, "prng": 1.5}[s.order]
     d += {"none": 0.0, "xor": 1.0, "aes": 1.5}[s.cipher]
     d += {"none": 0.0, "metadata": 0.5, "wordlist": 1.5, "biglist": 3.0, "secret": 4.0}[s.key_source]
-    d += {"none": 0.0, "metadata_text": 0.5, "trailer": 0.5}[s.decoy]
+    d += {"none": 0.0, "metadata_text": 0.5, "trailer": 0.5, "pixel": 1.0}[s.decoy]
     return round(min(d, 10.0), 2)

@@ -5,11 +5,13 @@ A scheme that fails its own round-trip is discarded (raises GenerationError)."""
 from __future__ import annotations
 
 import hashlib
+import random
 import secrets
 from dataclasses import dataclass
 from pathlib import Path
 
 from ..arena_schemes import SchemeSpec, difficulty, embed, extract, load_png, save_png, validate_spec
+from ..arena_schemes.decoys import pixel_decoy_spec
 from ..store import ArenaStore
 from .covers import pick_cover
 
@@ -70,10 +72,16 @@ def build_scheme(
         flag = new_flag()
         key = make_key(spec, s)
         decoy = new_flag() if spec.decoy != "none" else None
+        decoy_spec = pixel_decoy_spec(spec, random.Random(s)) if spec.decoy == "pixel" else None
         try:
+            if decoy_spec:  # decoy first: the real scheme's prepare() keeps the decoy's carrier intact
+                cover = embed(cover, decoy, decoy_spec, key)
             data = save_png(embed(cover, flag, spec, key), spec, key, decoy)
-            if extract(load_png(data), spec, key) != flag:
+            back = load_png(data)
+            if extract(back, spec, key) != flag:
                 raise GenerationError("round-trip extraction mismatch")
+            if decoy_spec and extract(back, decoy_spec, key) != decoy:
+                raise GenerationError("pixel decoy round-trip mismatch")
         except Exception as e:  # capacity, quantiser edge cases, ...
             last_err = e
             continue
@@ -81,6 +89,8 @@ def build_scheme(
         store.write_bytes(f"{base}/image.png", data)
         store.write_json(f"{base}/spec.json", {"scheme_id": scheme_id, "round": round_no, "parent_id": parent_id,
                                                "rationale": rationale, "difficulty": difficulty(spec), **spec.to_dict()})
-        store.write_json(f"{base}/truth.json", {"flag": flag, "key": key, "decoy_flag": decoy, "cover": cover_name, "seed": s})
+        store.write_json(f"{base}/truth.json", {"flag": flag, "key": key, "decoy_flag": decoy,
+                                                "decoy_spec": decoy_spec.to_dict() if decoy_spec else None,
+                                                "cover": cover_name, "seed": s})
         return BuiltScheme(round_no, scheme_id, spec, flag, key, decoy, difficulty(spec), f"{base}/image.png", parent_id, rationale)
     raise GenerationError(f"scheme {scheme_id} failed round-trip after {retries} tries: {last_err}")

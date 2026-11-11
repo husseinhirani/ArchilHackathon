@@ -16,11 +16,11 @@ LADDER: list[dict] = [
     dict(technique="palette", palette_colors=64, decoy="metadata_text"),
     dict(technique="lsb", channels=["R", "G"], cipher="xor", key_source="metadata"),
     dict(technique="dct", channels=["G"], dct_coeff="2,1", dct_delta=16),
-    dict(technique="alpha", alpha_mode="alpha_lsb", order="prng", key_source="metadata", decoy="trailer"),
+    dict(technique="alpha", alpha_mode="alpha_lsb", order="prng", key_source="metadata", decoy="pixel"),
     dict(technique="lsb", channels=["G"], bit_plane=0, order="prng", cipher="aes", key_source="wordlist"),
     dict(technique="dct", channels=["B"], dct_coeff="3,2", dct_delta=24, order="prng", key_source="wordlist", decoy="metadata_text"),
     dict(technique="palette", palette_colors=128, order="prng", cipher="aes", key_source="biglist"),
-    dict(technique="dct", channels=["R"], dct_coeff="2,3", dct_delta=18, order="prng", cipher="xor", key_source="biglist", decoy="trailer"),
+    dict(technique="dct", channels=["R"], dct_coeff="2,3", dct_delta=18, order="prng", cipher="xor", key_source="biglist", decoy="pixel"),
 ]
 
 MUTATIONS = {
@@ -34,7 +34,7 @@ MUTATIONS = {
     "alpha_mode": ["alpha_lsb", "transparent_rgb"],
     "cipher": ["none", "xor", "aes"],
     "key_source": ["metadata", "wordlist", "biglist"],
-    "decoy": ["none", "metadata_text", "trailer"],
+    "decoy": ["none", "metadata_text", "trailer", "pixel"],
 }
 
 

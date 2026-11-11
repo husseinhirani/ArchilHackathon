@@ -32,7 +32,7 @@ class ProposedScheme(BaseModel):
     alpha_mode: Literal["alpha_lsb", "transparent_rgb"]
     cipher: Literal["none", "xor", "aes"]
     key_source: Literal["none", "metadata", "wordlist", "biglist"]
-    decoy: Literal["none", "metadata_text", "trailer"]
+    decoy: Literal["none", "metadata_text", "trailer", "pixel"]
 
 
 class HiderProposal(BaseModel):
@@ -46,7 +46,7 @@ You may only choose parameters inside this fixed family:
 - order: sequential | prng (permutation seeded by the key)
 - cipher: none | xor | aes (payload encrypted with the key)
 - key_source: none | metadata (key in a PNG text chunk - visible) | wordlist (key is one of ~160 words the finder has - brute-forced in seconds) | biglist (key is word+NN, ~16k candidates - only feasible once the finder narrows the technique/params)
-- decoy: none | metadata_text | trailer (plants a fake flag; finder is penalised for submitting it)
+- decoy: none | metadata_text | trailer (fake flag in plain bytes) | pixel (fake flag embedded as a second LSB payload on a disjoint carrier, same order/cipher/key as the real one - extracting it looks just like extracting the real flag; not allowed with palette). Finder is penalised for submitting a decoy.
 prng or a cipher requires key_source != none.
 
 Solvability gate: every scheme must be solvable from the image plus the finder's toolkit (no unrecoverable keys). You win by being hard to *find*, not impossible. Prefer subtle combinations the finder's past behaviour suggests it misses."""
