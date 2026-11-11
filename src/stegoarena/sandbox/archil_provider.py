@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import tempfile
 import time
 import uuid
@@ -26,6 +27,12 @@ from .base import SETUP_SCRIPT, ExecResult, Sandbox, SandboxProvider, tools_tarb
 log = logging.getLogger(__name__)
 TEMPLATE_NAME = "stegoarena-template"
 ENV = {"ARENA_TOOLS": "/opt/arena", "PYTHONPATH": "/opt/arena"}
+
+
+def archil_name(name: str) -> str:
+    """Archil: 1-63 chars of [a-z0-9-], starting and ending alphanumeric."""
+    n = re.sub(r"[^a-z0-9-]+", "-", name.lower()).strip("-")[:63].strip("-")
+    return n or f"sb-{uuid.uuid4().hex[:8]}"
 
 
 class ArchilProvider(SandboxProvider):
@@ -57,7 +64,7 @@ class ArchilProvider(SandboxProvider):
     async def build_template(self) -> Sandbox:
         t0 = time.monotonic()
         sb = await self.client.sandboxes.create.aio(
-            name=f"{TEMPLATE_NAME}-{uuid.uuid4().hex[:6]}", base_image=self.cfg.archil_base_image,
+            name=archil_name(f"{TEMPLATE_NAME}-{uuid.uuid4().hex[:6]}"), base_image=self.cfg.archil_base_image,
             max_ttl_seconds=1800, idle_ttl_seconds=600)
         wrapped = Sandbox(sb.id, self.name, "/", "/opt/arena", native=sb)  # /work doesn't exist yet
         await self.exec(wrapped, "mkdir -p /opt/arena /work", 30)
@@ -74,7 +81,7 @@ class ArchilProvider(SandboxProvider):
     async def fork(self, template: Sandbox, name: str | None = None) -> Sandbox:
         # Works for the stopped template AND for a live finder sandbox (memory + files snapshotted;
         # the source is paused for the snapshot and resumed by the SDK).
-        child = await template.native.fork.aio(name=name or f"finder-{uuid.uuid4().hex[:8]}", wait=True)
+        child = await template.native.fork.aio(name=archil_name(name or f"finder-{uuid.uuid4().hex[:8]}"), wait=True)
         if child.status == "paused":
             child = await child.resume.aio(wait=True)
         elif child.status != "running":

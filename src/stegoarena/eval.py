@@ -46,22 +46,24 @@ def load_eval_scheme(store, sid: str) -> BuiltScheme:
     return BuiltScheme(EVAL_ROUND, sid, spec, tr["flag"], tr["key"], tr["decoy_flag"], difficulty(spec), f"{base}/image.png")
 
 
-async def run_eval(arena, finder: FinderGenome | str, label: str, generation: int | None = None) -> dict:
+async def run_eval(arena, finder: FinderGenome | str, label: str, generation: int | None = None, repeats: int = 1) -> dict:
     store = arena.store
     ids = store.read_json("eval/set.json", {"schemes": []})["schemes"] or build_eval_set(store)
     schemes = [load_eval_scheme(store, sid) for sid in ids]
-    results = await asyncio.gather(*(arena.attempt(EVAL_ROUND, s, 0, finder) for s in schemes))
+    results = await asyncio.gather(*(arena.attempt(EVAL_ROUND, s, k, finder) for s in schemes for k in range(repeats)))
     cracked = [r for r in results if r.get("cracked")]
     out = {
         "label": label, "finder": getattr(finder, "id", finder), "persona": getattr(finder, "persona_name", finder),
         "generation": generation, "model": arena.cfg.finder_model, "effort": arena.cfg.finder_effort,
         "playbook_len": len(getattr(finder, "playbook", []) or []), "tools": list(getattr(finder, "tools", {}) or {}),
-        "n": len(results), "crack_rate": round(len(cracked) / max(1, len(results)), 3),
+        "n": len(results), "repeats": repeats, "crack_rate": round(len(cracked) / max(1, len(results)), 3),
         "mean_score": round(statistics.mean(r["score"] for r in results), 3) if results else 0,
         "mean_time_to_crack_s": round(statistics.mean(r.get("elapsed_s") or 0 for r in cracked), 1) if cracked else None,
         "decoys_taken": sum(1 for r in results if r.get("decoy_submitted")),
-        "per_scheme": {r["scheme_id"]: {"cracked": r.get("cracked"), "score": r["score"], "attempt": r["attempt_id"],
-                                        "elapsed_s": r.get("elapsed_s")} for r in results},
+        "per_scheme": {sid: {"crack_rate": round(sum(1 for r in rs if r.get("cracked")) / len(rs), 2),
+                             "mean_score": round(statistics.mean(r["score"] for r in rs), 3),
+                             "attempts": [r["attempt_id"] for r in rs]}
+                       for sid in ids for rs in [[r for r in results if r["scheme_id"] == sid]] if rs},
         "t": time.time(),
     }
     store.write_json(f"eval/results/{label}.json", out)
