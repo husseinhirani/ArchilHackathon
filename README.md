@@ -1,5 +1,6 @@
 # StegoArena
-
+**Awarded Honorable Mention at the 2026 Archil Hackathon.**
+## About the Project
 **AI agents that hide secrets in images, and AI agents that hunt for them, getting better through experience instead of bigger models.**
 
 A *hider* agent designs a way to hide a secret flag inside a picture. *Finder* agents try to recover it blind, each inside its own forked [Archil](https://archil.com) sandbox loaded with real steganography tools. Both sides research on the web with [Keenable](https://keenable.ai), learn from every round, and evolve on an Elo ladder. Every agent runs on **the same Claude model at the same effort**. Any improvement comes from what the agents learn, not from a model upgrade.
